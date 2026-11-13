@@ -1,0 +1,18 @@
+{
+  "source": "noaa_catalog",
+  "url": "https://www.fisheries.noaa.gov/inport/item/80362",
+  "started_at": "2026-11-13T18:38:13.501715+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 200,
+  "final_url": "https://www.fisheries.noaa.gov/inport/item/80362",
+  "content_type": "text/html;charset=UTF-8",
+  "server_date": "Fri, 13 Nov 2026 18:38:13 GMT",
+  "truncated": false,
+  "bytes_read": 62033,
+  "sha256": "02a395b89fc15252e765226d10bda3f0b631d56ad8907a5c888de8edbd98750b",
+  "format": "non-json",
+  "sample": "<!doctype html>\r\n<html lang=\"en\">\r\n\r\n\r\n<head>\r\n  <script async src=\"https://www.googletagmanager.com/gtag/js?id=G-44FQGBN8G1\"></script>\r\n  <script>\r\n    globalThis.dataLayer = globalThis.dataLayer || [];\r\n    function gtag(){dataLayer.push(arguments);}\r\n    gtag('js', new Date());\r\n    gtag('config', 'G-44FQGBN8G1');\r\n  </script>\r\n  <meta charset=\"",
+  "outcome": "http_success",
+  "elapsed_seconds": 0.374
+}

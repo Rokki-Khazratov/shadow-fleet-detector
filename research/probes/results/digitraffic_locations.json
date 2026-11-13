@@ -1,0 +1,71 @@
+{
+  "source": "digitraffic_locations",
+  "url": "https://meri.digitraffic.fi/api/ais/v1/locations",
+  "started_at": "2026-11-13T18:38:13.244655+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 200,
+  "final_url": "https://meri.digitraffic.fi/api/ais/v1/locations",
+  "content_type": "application/json;charset=UTF-8",
+  "server_date": "Fri, 13 Nov 2026 18:38:10 GMT",
+  "truncated": false,
+  "bytes_read": 339615,
+  "sha256": "406123b5e33710df15357d7f1aad2d3f6adf3ee9fe7b3da8802a00f31d85296b",
+  "format": "json",
+  "top_level_keys": [
+    "type",
+    "dataUpdatedTime",
+    "features"
+  ],
+  "feature_count": 814,
+  "sample": [
+    {
+      "mmsi": 230145760,
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.483565,
+          61.595113
+        ]
+      },
+      "properties": {
+        "mmsi": 230145760,
+        "sog": 0.0,
+        "cog": 145.2,
+        "navStat": 5,
+        "rot": 0,
+        "posAcc": false,
+        "raim": false,
+        "heading": 101,
+        "timestamp": 11,
+        "timestampExternal": 1794594912508
+      }
+    },
+    {
+      "mmsi": 244854000,
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.649657,
+          59.462992
+        ]
+      },
+      "properties": {
+        "mmsi": 244854000,
+        "sog": 0.0,
+        "cog": 84.4,
+        "navStat": 5,
+        "rot": 0,
+        "posAcc": false,
+        "raim": false,
+        "heading": 31,
+        "timestamp": 57,
+        "timestampExternal": 1794594899378
+      }
+    }
+  ],
+  "outcome": "http_success",
+  "elapsed_seconds": 0.262
+}

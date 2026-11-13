@@ -1,0 +1,20 @@
+{
+  "source": "gfw_without_token",
+  "url": "https://gateway.api.globalfishingwatch.org/v3/vessels/search?query=EXAMPLE",
+  "started_at": "2026-11-13T18:38:13.245248+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 401,
+  "final_url": "https://gateway.api.globalfishingwatch.org/v3/vessels/search?query=EXAMPLE",
+  "content_type": "application/json; charset=utf-8",
+  "server_date": "Fri, 13 Nov 2026 18:38:13 GMT",
+  "truncated": false,
+  "bytes_read": 25,
+  "sha256": "3d34e0e1352791b8256cc5b43f9ff2137734eb7871bf15419dad67ce3297b7a1",
+  "format": "json",
+  "sample": {
+    "error": "invalid token"
+  },
+  "outcome": "http_error",
+  "elapsed_seconds": 0.249
+}

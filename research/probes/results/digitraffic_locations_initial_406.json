@@ -1,0 +1,18 @@
+{
+  "source": "digitraffic_locations",
+  "url": "https://meri.digitraffic.fi/api/ais/v1/locations",
+  "started_at": "2026-11-13T18:37:43.065528+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 406,
+  "final_url": "https://meri.digitraffic.fi/api/ais/v1/locations",
+  "content_type": null,
+  "server_date": "Fri, 13 Nov 2026 18:37:43 GMT",
+  "truncated": false,
+  "bytes_read": 70,
+  "sha256": "f1195aff3280286844e4147adb76129911c0554cfbba10a4c0ab2527fd9be71c",
+  "format": "non-json",
+  "sample": "Use of gzip compression is required with Accept-Encoding: gzip header.",
+  "outcome": "http_error",
+  "elapsed_seconds": 0.13
+}

@@ -1,0 +1,9 @@
+{
+  "source": "kystverket_tcp",
+  "endpoint": "153.44.253.27:5631",
+  "started_at": "2026-11-13T18:38:14.599597+00:00",
+  "credentials_used": false,
+  "outcome": "transport_error",
+  "error_type": "timeout",
+  "error": "timed out"
+}

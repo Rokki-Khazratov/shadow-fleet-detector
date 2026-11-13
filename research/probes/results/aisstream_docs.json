@@ -1,0 +1,18 @@
+{
+  "source": "aisstream_docs",
+  "url": "https://www.aisstream.io/documentation/",
+  "started_at": "2026-11-13T18:38:13.245115+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 200,
+  "final_url": "https://www.aisstream.io/documentation/",
+  "content_type": "text/html; charset=utf-8",
+  "server_date": "Fri, 13 Nov 2026 18:38:13 GMT",
+  "truncated": false,
+  "bytes_read": 81297,
+  "sha256": "9dbbd7b0cb27480750ea0b995d9012eb8fb2e503a2e15f44bc6ff48be0649d70",
+  "format": "non-json",
+  "sample": "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width\"/><meta charSet=\"utf-8\"/><title>Documentation — AIS Stream</title><meta name=\"description\" content=\"Connect to AIS Stream, manage subscriptions, and explore AIS message schemas.\"/><meta name=\"next-head-count\" content=\"4\"/><link rel=\"preload\" href=\"/_next/static/css/80c8ae1",
+  "outcome": "http_success",
+  "elapsed_seconds": 0.282
+}

@@ -1,0 +1,18 @@
+{
+  "source": "danish_catalog",
+  "url": "https://www.dma.dk/safety-at-sea/navigational-information/ais-data",
+  "started_at": "2026-11-13T18:38:13.507206+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 200,
+  "final_url": "https://www.dma.dk/safety-at-sea/navigational-information/ais-data",
+  "content_type": "text/html; charset=utf-8",
+  "server_date": "Fri, 13 Nov 2026 18:38:14 GMT",
+  "truncated": false,
+  "bytes_read": 86518,
+  "sha256": "52bce59962c9d1a2e431558a6f82feb05aace5d65d266b278d60ad946a8c2440",
+  "format": "non-json",
+  "sample": "<!DOCTYPE html>\n<html lang=\"en\"><head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><script src=\"https://cdn2.gopublic.dk/Assets/GoBasic/Plugins/fslightbox/fslightbox.js\"></script><link rel=\"stylesheet\" href=\"https://cdn2.gopublic.dk/Assets/Clients/soefartsstyrelsen/Themes/SFSTv5/Release/theme",
+  "outcome": "http_success",
+  "elapsed_seconds": 1.092
+}

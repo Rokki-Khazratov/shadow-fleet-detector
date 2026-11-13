@@ -1,0 +1,30 @@
+{
+  "source": "opensanctions_catalog",
+  "url": "https://data.opensanctions.org/datasets/latest/index.json",
+  "started_at": "2026-11-13T18:38:13.494428+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 200,
+  "final_url": "https://data.opensanctions.org/datasets/latest/index.json",
+  "content_type": "application/json",
+  "server_date": "Fri, 13 Nov 2026 18:38:13 GMT",
+  "truncated": false,
+  "bytes_read": 2168848,
+  "sha256": "c2298917144ff4a48a8a3d74cb0f31381b29855bf698103af95b772dd0247b60",
+  "format": "json",
+  "top_level_keys": [
+    "datasets",
+    "run_time",
+    "statements_url",
+    "model",
+    "target_topics",
+    "enrich_topics",
+    "schemata",
+    "app"
+  ],
+  "sample": {
+    "note": "Catalog reachable; entity datasets not downloaded."
+  },
+  "outcome": "http_success",
+  "elapsed_seconds": 0.291
+}

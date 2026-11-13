@@ -1,0 +1,52 @@
+{
+  "source": "digitraffic_vessels",
+  "url": "https://meri.digitraffic.fi/api/ais/v1/vessels",
+  "started_at": "2026-11-13T18:38:13.244982+00:00",
+  "method": "GET",
+  "credentials_used": false,
+  "http_status": 200,
+  "final_url": "https://meri.digitraffic.fi/api/ais/v1/vessels",
+  "content_type": "application/json;charset=UTF-8",
+  "server_date": "Fri, 13 Nov 2026 18:37:22 GMT",
+  "truncated": false,
+  "bytes_read": 258864,
+  "sha256": "93365d15f5d30a4a035b8fc0234d9f29628ed8c58ffa441e65e7a0bd0a824c43",
+  "format": "json",
+  "record_count": 793,
+  "sample": [
+    {
+      "callSign": "LYPM",
+      "destination": "0",
+      "draught": 0,
+      "eta": 1596,
+      "imo": 0,
+      "mmsi": 277005000,
+      "name": "NATO WARSHIP ",
+      "posType": 1,
+      "referencePointA": 17,
+      "referencePointB": 48,
+      "referencePointC": 2,
+      "referencePointD": 10,
+      "shipType": 35,
+      "timestamp": 1794508760873
+    },
+    {
+      "callSign": "5LYR9",
+      "destination": "RU ULU",
+      "draught": 80,
+      "eta": 743872,
+      "imo": 9568201,
+      "mmsi": 636025693,
+      "name": "XINGHAI",
+      "posType": 1,
+      "referencePointA": 204,
+      "referencePointB": 31,
+      "referencePointC": 24,
+      "referencePointD": 14,
+      "shipType": 70,
+      "timestamp": 1794508798613
+    }
+  ],
+  "outcome": "http_success",
+  "elapsed_seconds": 0.257
+}
