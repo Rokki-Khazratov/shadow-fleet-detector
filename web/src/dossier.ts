@@ -1,3 +1,5 @@
+import { demoMode, request } from './api';
+
 interface Citation {title: string; url: string; retrieved_on: string; license_note: string}
 interface Dossier {
   status: 'not_configured' | 'no_link' | 'linked' | 'ambiguous';
@@ -27,7 +29,7 @@ function citationNode(citation: Citation) {
   return row;
 }
 
-export function dossierPanel(source: string, mmsi: string, providerTime: string, signal: AbortSignal) {
+export function dossierPanel(source: string, mmsi: string, providerTime: () => string, signal: AbortSignal) {
   const section = document.createElement('section');
   section.className = 'dossier';
   section.setAttribute('aria-label', 'Досье сигнала');
@@ -41,16 +43,16 @@ export function dossierPanel(source: string, mmsi: string, providerTime: string,
     button.disabled = true;
     output.replaceChildren(text('p', 'Загрузка досье…'));
     try {
-      const on = new Date(providerTime).toISOString().slice(0, 10);
+      const on = new Date(providerTime()).toISOString().slice(0, 10);
       const url = `/v1/dossier/${encodeURIComponent(source)}/${encodeURIComponent(mmsi)}?on=${on}`;
-      const response = await fetch(url, {signal});
+      const response = await request(url, {signal});
       if (!response.ok) throw new Error('Dossier unavailable');
       const data: Dossier = await response.json();
       if (signal.aborted) return;
       if (data.status === 'no_link' || data.status === 'not_configured') {
         output.replaceChildren(text('p', data.status === 'no_link'
           ? `На ${data.on} UTC нет сохранённой связи с внешним источником.`
-          : 'Локальный каталог внешних сведений не настроен.'));
+          : demoMode ? 'Для синтетического сигнала внешних записей нет.' : 'Локальный каталог внешних сведений не настроен.'));
         return;
       }
       output.replaceChildren(text('h3', 'Связи с внешними идентификаторами'), text('p', `Дата сигнала: ${data.on} UTC.`));

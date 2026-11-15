@@ -1,3 +1,5 @@
+import { demoMode, request } from './api';
+
 import { qualityDetails, type QualityReport } from './quality';
 
 export interface HistoryPoint {provider_time: string; lat: number; lon: number; time_conflict: boolean}
@@ -8,7 +10,7 @@ interface HistoryPage {
   quality?: QualityReport;
 }
 
-export function historyPanel(sourceId: string, mmsi: string, asOf: string, signal: AbortSignal, onPoints: (points: HistoryPoint[]) => void) {
+export function historyPanel(sourceId: string, mmsi: string, asOf: () => string, signal: AbortSignal, onPoints: (points: HistoryPoint[]) => void) {
   const panel = document.createElement('div');
   const button = document.createElement('button');
   button.type = 'button';
@@ -28,11 +30,11 @@ export function historyPanel(sourceId: string, mmsi: string, asOf: string, signa
     show('Загрузка истории…');
     onPoints([]);
     try {
-      const end = new Date(asOf);
+      const end = new Date(asOf());
       const query = new URLSearchParams({from: new Date(end.getTime() - 3_600_000).toISOString(),
         to: end.toISOString(), limit: '100'});
       const url = `/v1/history/${encodeURIComponent(sourceId)}/${encodeURIComponent(mmsi)}?${query}`;
-      const response = await fetch(url, {signal});
+      const response = await request(url, {signal});
       if (!response.ok) throw new Error('history request failed');
       const page: HistoryPage = await response.json();
       if (signal.aborted) return;
@@ -41,7 +43,7 @@ export function historyPanel(sourceId: string, mmsi: string, asOf: string, signa
         show('За этот час нет сохранённых наблюдений.');
         return;
       }
-      show(page.truncated ? 'Показаны первые 100 наблюдений за этот час.' : 'Сохранённые наблюдения за час, UTC.');
+      show(page.truncated ? 'Показаны первые 100 наблюдений за этот час.' : demoMode ? 'Синтетические наблюдения за час, UTC.' : 'Сохранённые наблюдения за час, UTC.');
       const list = document.createElement('ul');
       list.setAttribute('aria-label', 'История наблюдений');
       list.className = 'history-list';

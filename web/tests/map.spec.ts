@@ -8,11 +8,51 @@ const source = {id:'fintraffic', attribution:'Fintraffic / Digitraffic',
   license_url:'https://creativecommons.org/licenses/by/4.0/', sync_state:'live',
   last_mqtt_at:'2026-01-01T00:00:00Z',last_snapshot_at:'2026-01-01T00:00:00Z'};
 
+test('a selected card follows updates and expires with a confirmed 404', async ({page}) => {
+  const as_of = '2026-01-01T00:00:00Z';
+  let latest = item;
+  let expired = false;
+  await page.route('**/v1/positions/**', r => expired ? r.fulfill({status:404})
+    : r.fulfill({json:{as_of,source,item:latest}}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of,source,items:expired ? [] : [latest],truncated:false}}));
+  await page.goto('/');
+  await page.getByRole('button',{name:item.mmsi,exact:true}).click();
+  await expect(page.getByText('Координаты: 60.0000, 25.0000')).toBeVisible();
+  const history = await page.getByRole('button',{name:'Показать наблюдения за час'}).elementHandle();
+  latest = {...item, lat:60.1, time_conflict:true};
+  await expect(page.getByText('Координаты: 60.1000, 25.0000')).toBeVisible({timeout:10000});
+  await expect(page.getByText('Конфликт наблюдений за одну секунду')).toBeVisible();
+  expect(await history!.evaluate(node => node.isConnected)).toBe(true);
+  expired = true;
+  await expect(page.getByText('Наблюдение больше недоступно.')).toBeVisible({timeout:10000});
+  await expect(page.locator('#detail').getByText('Координаты:',{exact:true})).toHaveCount(0);
+  await expect(page.locator('.reticle')).toHaveCount(0);
+});
+
+test('an outage marks cached observations stale and advances their age', async ({page}) => {
+  const as_of = '2026-01-01T00:00:22Z';
+  const observed = {...item, age_seconds:22};
+  let up = true;
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of,source,item:observed}}));
+  await page.route('**/v1/positions?**', r => up ? r.fulfill({json:{as_of,source,items:[observed],truncated:false}})
+    : r.fulfill({status:503}));
+  await page.goto('/');
+  const row = page.getByRole('button',{name:item.mmsi,exact:true});
+  await row.click();
+  await expect(page.locator('.detail-meta')).toContainText('Свежая точка · 22 с');
+  up = false;
+  await expect(page.getByRole('status')).toContainText('Нет соединения',{timeout:10000});
+  await expect(row).toHaveAttribute('data-freshness','old');
+  await expect(row).not.toContainText('22 с');
+  await expect(page.locator('.detail-meta')).toContainText('Устарела');
+  await expect(page.locator('.detail-meta')).not.toContainText('22 с');
+});
+
 test('accessible observation selection opens details', async ({page}) => {
   await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:'2026-01-01T00:00:00Z',source,item}}));
   await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:'2026-01-01T00:00:00Z',source,items:[item],truncated:false}}));
   await page.goto('/');
-  await expect(page.getByText('Техническая подложка')).toBeVisible();
+  await expect(page.getByRole('link',{name:'Берега: Natural Earth'})).toBeVisible();
   await page.getByRole('button',{name:'123456789'}).click();
   await expect(page.getByText('Скорость: 0 уз.')).toBeVisible();
 });
@@ -36,7 +76,7 @@ test('truncation and degraded source are visible', async ({page}) => {
   await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:'2026-01-01T00:00:00Z',source:{...source,sync_state:'degraded'},items:[{...item,stale:true}],truncated:true}}));
   await page.goto('/');
   await expect(page.getByText('Показаны первые 2 000 наблюдений; приблизьте карту.')).toBeVisible();
-  await expect(page.getByText(/Источник: degraded/)).toBeVisible();
+  await expect(page.getByText(/Источник: поток недоступен/)).toBeVisible();
   await expect(page.getByRole('button',{name:'123456789'})).toHaveAttribute('title','Устаревшее наблюдение');
 });
 

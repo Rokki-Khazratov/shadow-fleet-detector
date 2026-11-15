@@ -1,26 +1,307 @@
-import * as maplibregl from 'maplibre-gl';
-import type {GeoJSONSource} from 'maplibre-gl';
+import {setWorkerUrl} from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
-import { historyLayer } from './history-layer';
-import { historyPanel } from './history';
-import { dossierPanel } from './dossier';
-maplibregl.setWorkerUrl(workerUrl);
-interface Position {source_id:string;mmsi:string;lon:number;lat:number;provider_time:string;received_at:string;transport:string;age_seconds:number;stale:boolean;time_conflict:boolean;clock_skew:boolean;sog_kn:number|null;cog_deg:number|null;heading_deg:number|null}
-interface Page {as_of:string;source:{sync_state:string};items:Position[];truncated:boolean}
-const app=document.querySelector<HTMLDivElement>('#app')!;
-app.innerHTML=`<header><div><strong>Shadow Fleet Detector</strong><small>Морские наблюдения · Fintraffic</small></div><span id="network" role="status">Подключение…</span></header><main><section class="map-area" aria-label="Область наблюдений"><div id="map"></div><div id="history-legend" class="history-legend" hidden>Точки истории выбранного сигнала</div><div class="map-label">Техническая подложка · без береговой линии</div></section><aside><section><div class="row"><h1>Наблюдения</h1><span id="count">—</span></div><p id="source">Ожидание данных</p><p id="truncated" hidden>Показаны первые 2 000 наблюдений; приблизьте карту.</p><div id="list" aria-label="Список наблюдений"></div></section><section id="detail" aria-live="polite"><h2>Выберите наблюдение</h2><p>Карточка покажет время сообщения и координаты.</p></section><footer><a href="https://www.digitraffic.fi/en/marine-traffic/">Fintraffic / Digitraffic</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a><p>Данные нормализованы и отфильтрованы; показана последняя доступная позиция.</p><p>MMSI — идентификатор сигнала. Аномалия не доказывает нарушение.</p></footer></aside></main>`;
-const el=(id:string)=>document.getElementById(id)!;
-const elem=(tag:string,value:string)=>{const e=document.createElement(tag);e.textContent=value;return e;};
-const map=new maplibregl.Map({container:'map',style:{version:8,sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#101b23'}}]},center:[25,60],zoom:6,attributionControl:false});
-map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
-let last:Page|undefined,request:AbortController|undefined,detailRequest:AbortController|undefined,timer:ReturnType<typeof setTimeout>|undefined,sequence=0,detailSeq=0,ready=false;
+import {demoMode, request} from './api';
+import {createChart, type Theme} from './chart';
+import {dossierPanel} from './dossier';
+import {historyPanel} from './history';
+import {historyLayer} from './history-layer';
+import type {Detail, Page, Position} from './types';
+import {element, emptyState, icons, mountWorkspace} from './workspace';
+
+const initialTheme = (): Theme => {
+  try { return localStorage.getItem('sfd-theme') === 'light' ? 'light' : 'dark'; }
+  catch { return 'dark'; }
+};
+let theme = initialTheme();
+document.documentElement.dataset.theme = theme;
+setWorkerUrl(workerUrl);
+mountWorkspace(document.querySelector<HTMLDivElement>('#app')!);
+const el = (id: string) => document.getElementById(id)!;
+const search = document.querySelector<HTMLInputElement>('#mmsi-search')!;
+const network = el('network');
+const list = el('list');
+const box = el('detail');
+const themeButton = el('theme');
+const chart = createChart(theme);
+const {map} = chart;
+const number = new Intl.NumberFormat('ru-RU');
+const clock = new Intl.DateTimeFormat('ru-RU', {timeZone:'UTC', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'});
+const sourceNames = {starting:'ожидает запуска', syncing:'сверяет снимок', live:'поток активен', degraded:'поток недоступен'};
+const key = (p: Position) => `${p.source_id}/${p.mmsi}`;
+const ageLabel = (seconds: number) => seconds < 60 ? `${Math.floor(seconds)} с`
+  : seconds < 3600 ? `${Math.floor(seconds / 60)} мин` : `${Math.floor(seconds / 3600)} ч`;
+let last: Page | undefined;
+let lastReceivedAt = 0;
+let disconnected = false;
+let selectedKey: string | undefined;
+let selectedPoint: Position | undefined;
+let listRequest: AbortController | undefined;
+let detailRequest: AbortController | undefined;
+let selection: AbortController | undefined;
+let detailState: {data: Detail; receivedAt: number} | undefined;
+let timer: ReturnType<typeof setTimeout> | undefined;
+let ready = false;
 let drawHistory: ReturnType<typeof historyLayer> = () => {};
-async function select(p:Position){detailRequest?.abort();drawHistory([]);const ac=detailRequest=new AbortController(),id=++detailSeq;el('detail').replaceChildren(elem('p','Загрузка карточки…'));try{const r=await fetch(`/v1/positions/${encodeURIComponent(p.source_id)}/${encodeURIComponent(p.mmsi)}`,{signal:ac.signal});if(!r.ok)throw Error();const d=await r.json() as {item:Position;as_of:string};if(id!==detailSeq)return;const x=d.item,box=el('detail');box.replaceChildren(elem('h2',x.mmsi));for(const line of [`Координаты: ${x.lat.toFixed(4)}, ${x.lon.toFixed(4)}`,`Время источника: ${x.provider_time}`,`Получено: ${x.received_at}`,`Источник: Fintraffic / Digitraffic`,`Канал: ${x.transport}`,`Возраст: ${Math.floor(x.age_seconds)} с · ${x.stale?'устарело':'свежее'}`,`Скорость: ${x.sog_kn===null?'нет данных':x.sog_kn+' уз.'}`,`Курс: ${x.cog_deg===null?'нет данных':x.cog_deg+'°'}`,`Направление: ${x.heading_deg===null?'нет данных':x.heading_deg+'°'}`,...(x.clock_skew?['Сдвиг времени источника']:[]),...(x.time_conflict?['Конфликт наблюдений за одну секунду']:[])])box.append(elem('p',line));box.append(historyPanel(x.source_id,x.mmsi,d.as_of,ac.signal,drawHistory),
-  dossierPanel(x.source_id,x.mmsi,x.provider_time,ac.signal));}catch{if(!ac.signal.aborted&&id===detailSeq)el('detail').replaceChildren(elem('h2','Карточка недоступна'),elem('p','Наблюдение отсутствует или соединение прервано.'));}}
-function draw(p:Page){const list=el('list');list.replaceChildren();for(const x of p.items){const b=document.createElement('button');b.textContent=x.mmsi;b.className='observation';b.title=x.stale?'Устаревшее наблюдение':'Свежее наблюдение';b.addEventListener('click',()=>void select(x));list.append(b);}if(!p.items.length)list.append(elem('p','В этой области нет доступных наблюдений. Это не означает отсутствие судов.'));el('count').textContent=String(p.items.length);el('source').textContent=`Источник: ${p.source.sync_state} · ответ ${p.as_of}`;el('truncated').hidden=!p.truncated;(map.getSource('positions') as GeoJSONSource).setData({type:'FeatureCollection',features:p.items.map(x=>({type:'Feature',geometry:{type:'Point',coordinates:[x.lon,x.lat]},properties:{mmsi:x.mmsi,source_id:x.source_id,stale:x.stale}}))});}
-function bounds(){const b=map.getBounds(),w=b.getWest(),e=b.getEast(),norm=(x:number)=>((x+180)%360+360)%360-180;return new URLSearchParams({west:String(e-w>=360?-180:norm(w)),east:String(e-w>=360?180:norm(e)),south:String(Math.max(-90,b.getSouth())),north:String(Math.min(90,b.getNorth()))});}
-async function refresh(){if(!ready)return;request?.abort();if(timer)clearTimeout(timer);const ac=request=new AbortController(),id=++sequence;try{const r=await fetch(`/v1/positions?${bounds()}`,{signal:ac.signal});if(!r.ok)throw Error();const p=await r.json() as Page;if(id!==sequence)return;last=p;draw(p);el('network').textContent='Соединение активно';}catch{if(!ac.signal.aborted&&id===sequence){el('network').textContent='Нет соединения · данные устарели';if(!last)el('list').replaceChildren(elem('p','API недоступен. Проверьте запуск сервера.'));}}finally{if(id===sequence&&!ac.signal.aborted)timer=setTimeout(()=>void refresh(),5000);}}
-map.on('load',()=>{map.addSource('positions',{type:'geojson',data:{type:'FeatureCollection',features:[]}});map.addLayer({id:'points',type:'circle',source:'positions',paint:{'circle-radius':5,'circle-color':['case',['get','stale'],'#a7b6bd','#80d0c3'],'circle-stroke-color':'#0b151d','circle-stroke-width':1}});drawHistory=historyLayer(map,el('history-legend'));map.on('click','points',e=>{const p=last?.items.find(x=>x.mmsi===e.features?.[0]?.properties?.mmsi);if(p)void select(p);});ready=true;void refresh();});
-map.on('moveend',()=>void refresh());window.addEventListener('pagehide',()=>{sequence++;detailSeq++;request?.abort();detailRequest?.abort();if(timer)clearTimeout(timer);map.remove();},{once:true});
+
+function showConnection(message: string, tone: string) {
+  network.textContent = message;
+  network.dataset.tone = tone;
+}
+function resetDetail() {
+  box.replaceChildren(element('h2','Карточка сигнала'),
+    element('p','Выберите точку на карте или MMSI в списке. Здесь появятся время наблюдения, координаты и история.','placeholder-copy'));
+}
+function syncTheme() {
+  document.documentElement.dataset.theme = theme;
+  const label = theme === 'dark' ? 'Светлая тема' : 'Тёмная тема';
+  themeButton.setAttribute('aria-label',label);
+  themeButton.title = label;
+  themeButton.innerHTML = theme === 'dark' ? icons.light : icons.dark;
+  chart.applyTheme(theme);
+}
+syncTheme();
+themeButton.addEventListener('click', () => {
+  theme = theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('sfd-theme', theme); } catch { /* Preference is optional. */ }
+  syncTheme();
+});
+el('reset-view').addEventListener('click', () => map.easeTo({center:[25,60], zoom:6}));
+
+function centreReadout() {
+  const c = map.getCenter().wrap();
+  el('map-centre').textContent = `${Math.abs(c.lat).toFixed(4)}° ${c.lat < 0 ? 'S' : 'N'} · ${Math.abs(c.lng).toFixed(4)}° ${c.lng < 0 ? 'W' : 'E'}`;
+}
+function setSelectedButtons() {
+  for (const row of list.querySelectorAll<HTMLButtonElement>('button[data-key]')) {
+    row.setAttribute('aria-pressed',String(row.dataset.key === selectedKey));
+  }
+}
+function closeDetail(restoreFocus: boolean) {
+  const old = selectedKey;
+  detailRequest?.abort();
+  selection?.abort();
+  detailState = undefined;
+  selectedKey = undefined;
+  selectedPoint = undefined;
+  drawHistory([]);
+  setSelectedButtons();
+  chart.positions(filtered(), undefined);
+  resetDetail();
+  if (restoreFocus) {
+    const row = Array.from(list.querySelectorAll<HTMLButtonElement>('button')).find(row => row.dataset.key === old);
+    (row ?? search).focus({preventScroll:true});
+  }
+}
+
+function cached(position: Position, asOf: string, receivedAt: number): Position {
+  const elapsed = Math.max(0, performance.now() - receivedAt);
+  const age = (Date.parse(asOf) + elapsed - Date.parse(position.provider_time)) / 1000;
+  return {...position, stale:true, age_seconds:Math.max(position.age_seconds, age)};
+}
+
+function detailHead(label: string, titleClass?: string) {
+  const head = element('div','','detail-head');
+  const title = element('h2',label,titleClass);
+  const close = element('button','','icon-button detail-close');
+  close.type = 'button';
+  close.innerHTML = icons.close;
+  close.setAttribute('aria-label','Закрыть карточку');
+  close.addEventListener('click', () => closeDetail(true));
+  head.append(title, close);
+  return head;
+}
+
+function unavailable(message: string) {
+  box.replaceChildren(detailHead('Карточка недоступна'),element('p',message,'placeholder-copy'));
+}
+
+function renderDetail(offline: boolean) {
+  if (!detailState || !selection) return;
+  const {data, receivedAt} = detailState;
+  const {as_of, source} = data;
+  const p = offline ? cached(data.item, as_of, receivedAt) : data.item;
+  let summary = box.querySelector<HTMLElement>('.detail-summary');
+  if (!summary) {
+    summary = element('div','','detail-summary');
+    const signal = selection.signal;
+    box.replaceChildren(detailHead(p.mmsi,'data'),summary,
+      historyPanel(p.source_id,p.mmsi,() => detailState?.data.as_of ?? as_of,signal,drawHistory),
+      dossierPanel(p.source_id,p.mmsi,() => detailState?.data.item.provider_time ?? p.provider_time,signal));
+  }
+  const meta = element('p',`${p.stale ? 'Устарела' : 'Свежая точка'} · ${ageLabel(p.age_seconds)} назад · ${p.transport.toUpperCase()}`,'detail-meta');
+  const motion = (value:number|null, unit:string) => value === null ? 'нет данных' : `${value}${unit}`;
+  const facts = element('dl','','facts');
+  for (const [label,value] of [
+    ['Координаты',`${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}`],
+    ['Время источника',p.provider_time], ['Получено',p.received_at], ['Источник',source.attribution],
+    ['Скорость',motion(p.sog_kn,' уз.')], ['Курс',motion(p.cog_deg,'°')], ['Направление',motion(p.heading_deg,'°')],
+  ]) {
+    const row = element('div','','fact');
+    row.append(element('dt',`${label}:`),' ',element('dd',value));
+    facts.append(row);
+  }
+  summary.replaceChildren(meta,facts);
+  if (offline) summary.append(element('p','Последняя сохранённая позиция','warning'));
+  if (p.clock_skew) summary.append(element('p','Сдвиг времени источника','warning'));
+  if (p.time_conflict) summary.append(element('p','Конфликт наблюдений за одну секунду','warning'));
+}
+
+async function refreshDetail(p: Position, reveal = false) {
+  detailRequest?.abort();
+  const ac = detailRequest = new AbortController();
+  try {
+    const response = await request(`/v1/positions/${encodeURIComponent(p.source_id)}/${encodeURIComponent(p.mmsi)}`,{signal:ac.signal});
+    if (ac.signal.aborted) return;
+    if (response.status === 404) {
+      closeDetail(false);
+      unavailable('Наблюдение больше недоступно.');
+      return;
+    }
+    if (!response.ok) throw Error('position');
+    const detail: Detail = await response.json();
+    if (ac.signal.aborted) return;
+    detailState = {data:detail, receivedAt:performance.now()};
+    renderDetail(disconnected);
+    if (reveal && window.matchMedia('(max-width: 760px)').matches) box.scrollIntoView({block:'nearest'});
+  } catch {
+    if (ac.signal.aborted) return;
+    if (detailState) renderDetail(true);
+    else unavailable('Не удалось загрузить наблюдение. Повторим запрос автоматически.');
+  }
+}
+
+function select(p: Position) {
+  selection?.abort();
+  selection = new AbortController();
+  detailState = undefined;
+  drawHistory([]);
+  selectedKey = key(p);
+  selectedPoint = p;
+  setSelectedButtons();
+  const items = filtered();
+  chart.positions(items,items.find(item => key(item) === selectedKey));
+  box.replaceChildren(element('p','Загрузка карточки…','placeholder-copy'));
+  void refreshDetail(p,true);
+}
+
+function filtered() {
+  const query = search.value.trim();
+  if (!last) return [];
+  const {items, as_of} = last;
+  const show = items.filter(row => row.mmsi.includes(query));
+  return disconnected ? show.map(row => cached(row,as_of,lastReceivedAt)) : show;
+}
+function renderList() {
+  const items = filtered();
+  const active = document.activeElement;
+  const focused = active instanceof HTMLButtonElement && list.contains(active) ? active.dataset.key : null;
+  const fragment = document.createDocumentFragment();
+  let restore: HTMLButtonElement | undefined;
+  for (const p of items) {
+    const row = element('button','','observation');
+    row.type = 'button';
+    row.dataset.key = key(p);
+    row.dataset.freshness = p.stale ? 'old' : 'current';
+    row.title = p.stale ? 'Устаревшее наблюдение' : 'Свежее наблюдение';
+    row.setAttribute('aria-label', p.mmsi);
+    row.setAttribute('aria-description',`${row.title} · ${ageLabel(p.age_seconds)} назад`);
+    row.setAttribute('aria-pressed',String(key(p) === selectedKey));
+    const symbol = element('span','','ship-symbol');
+    const direction = p.heading_deg ?? p.cog_deg;
+    symbol.innerHTML = direction === null ? icons.observation : icons.ship;
+    if (direction !== null) symbol.style.setProperty('--heading',`${direction}deg`);
+    const info = element('span','','observation-info');
+    info.append(element('strong',p.mmsi,'data'), element('small',p.sog_kn === null ? 'Скорость неизвестна' : `${p.sog_kn} уз. · ${p.transport.toUpperCase()}`));
+    const age = element('span','','observation-age');
+    age.append(element('strong',ageLabel(p.age_seconds),'data'), element('small',p.stale ? 'Устарела' : 'Свежая'));
+    row.append(symbol,info,age);
+    row.addEventListener('click',() => void select(p));
+    if (row.dataset.key === focused) restore = row;
+    fragment.append(row);
+  }
+  if (!items.length) fragment.append(search.value.trim() && last?.items.length
+    ? emptyState('Совпадений нет','Проверьте MMSI или очистите поиск.')
+    : emptyState('Нет наблюдений в области','Сместите карту или измените масштаб. Это не означает отсутствие судов.'));
+  list.replaceChildren(fragment);
+  list.setAttribute('aria-busy','false');
+  restore?.focus({preventScroll:true});
+  el('count').textContent = number.format(items.length);
+  const visibleSelection = items.find(p => key(p) === selectedKey);
+  selectedPoint = visibleSelection ?? selectedPoint;
+  chart.positions(items, visibleSelection);
+}
+
+function bounds() {
+  const b = map.getBounds(), w = b.getWest(), e = b.getEast();
+  const norm = (x: number) => ((x + 180) % 360 + 360) % 360 - 180;
+  return new URLSearchParams({west:String(e-w >= 360 ? -180 : norm(w)),east:String(e-w >= 360 ? 180 : norm(e)),
+    south:String(Math.max(-90,b.getSouth())),north:String(Math.min(90,b.getNorth()))});
+}
+async function refresh() {
+  if (!ready) return;
+  listRequest?.abort();
+  if (timer) clearTimeout(timer);
+  const ac = listRequest = new AbortController();
+  try {
+    const response = await request(`/v1/positions?${bounds()}`,{signal:ac.signal});
+    if (!response.ok) throw Error('positions');
+    const page: Page = await response.json();
+    if (ac.signal.aborted) return;
+    disconnected = false;
+    lastReceivedAt = performance.now();
+    last = page;
+    renderList();
+    el('truncated').hidden = !page.truncated;
+    el('source').textContent = demoMode ? 'Пример данных для Финского залива'
+      : `Источник: ${sourceNames[page.source.sync_state]} · ${clock.format(new Date(page.as_of))} UTC`;
+    showConnection(demoMode ? 'Синтетические данные' : 'Соединение активно', demoMode ? 'demo' : 'ok');
+    if (!demoMode && selectedPoint) void refreshDetail(selectedPoint);
+  } catch {
+    if (ac.signal.aborted) return;
+    disconnected = true;
+    detailRequest?.abort();
+    showConnection('Нет соединения · данные устарели','warning');
+    list.setAttribute('aria-busy','false');
+    if (!last) {
+      el('source').textContent = 'Ответ источника пока не получен';
+      list.replaceChildren(emptyState('API недоступен.','Проверьте запуск локального сервера. Повторим запрос автоматически.'));
+    } else {
+      renderList();
+      if (detailState) renderDetail(true);
+      else if (selectedKey) unavailable('Не удалось загрузить наблюдение. Повторим запрос автоматически.');
+    }
+  } finally {
+    if (!ac.signal.aborted && !demoMode) timer = setTimeout(() => void refresh(),5000);
+  }
+}
+search.addEventListener('input',() => { if (last) renderList(); });
+box.addEventListener('keydown',event => {
+  if (event.key === 'Escape' && (selectedKey || box.querySelector('.detail-close'))) closeDetail(true);
+});
+resetDetail();
+list.replaceChildren(element('p','Загрузка наблюдений…','placeholder-copy'));
+map.on('load',() => {
+  drawHistory = historyLayer(map,el('history-legend'));
+  map.on('click','points',event => {
+    const feature = event.features?.[0]?.properties;
+    const position = filtered().find(p => p.mmsi === feature?.mmsi && p.source_id === feature.source_id);
+    if (position) void select(position);
+  });
+  map.on('mouseenter','points',() => {map.getCanvas().style.cursor = 'pointer';});
+  map.on('mouseleave','points',() => {map.getCanvas().style.cursor = '';});
+  ready = true;
+  syncTheme();
+  void refresh();
+});
+map.on('moveend',() => {centreReadout(); void refresh();});
+window.addEventListener('pagehide',event => {
+  if (event.persisted) return;
+  ready = false;
+  listRequest?.abort();
+  detailRequest?.abort();
+  selection?.abort();
+  if (timer) clearTimeout(timer);
+  chart.cleanup();
+},{once:true});

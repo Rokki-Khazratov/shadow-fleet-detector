@@ -31,13 +31,13 @@ test('synthetic failure, restart, expiration and UI recovery', async ({page}) =>
   await expect(page.getByText('Конфликт наблюдений за одну секунду')).toBeVisible();
   fixture('disconnect');
   await page.getByRole('button',{name:'Zoom in'}).click();
-  await expect(page.getByText(/Источник: degraded/)).toBeVisible();
+  await expect(page.getByText(/Источник: поток недоступен/)).toBeVisible();
   fixture('failure');
   await page.getByRole('button',{name:'Zoom in'}).click();
   await expect(page.getByRole('button',{name:'987654321'})).toBeVisible();
   fixture('restart');
   await page.getByRole('button',{name:'Zoom in'}).click();
-  await expect(page.getByText(/Источник: live/)).toBeVisible();
+  await expect(page.getByText(/Источник: поток активен/)).toBeVisible();
   let fail = true;
   await page.route('**/v1/positions?**', route => {
     if (fail) {fail = false; return route.fulfill({status:503,body:'unavailable'});}
