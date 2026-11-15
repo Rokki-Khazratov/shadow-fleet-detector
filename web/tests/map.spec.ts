@@ -159,3 +159,23 @@ test('history point can be inspected on the map and clears on selection', async 
   await expect(page.getByText('Точки истории выбранного сигнала')).toBeHidden();
   await expect(page.locator('.maplibregl-popup')).toHaveCount(0);
 });
+
+test('dossier separates source citations from the AIS detail', async ({page}) => {
+  const asOf = '2026-01-01T01:00:00Z';
+  const citation = {title:'Синтетический реестр', url:'https://example.org/register',
+    retrieved_on:'2026-01-01',license_note:'Синтетика'};
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:asOf,source,item}}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:asOf,source,items:[item],truncated:false}}));
+  await page.route('**/v1/dossier/**', r => r.fulfill({json:{status:'linked',on:'2026-01-01',
+    bindings:[{namespace:'registry',identifier:'TEST-1',since:'2025-12-01',until:'2026-02-01',citation}],
+    external_claims:[{statement:'Синтетическая запись',published_on:'2025-12-31',citation}],
+  }}));
+  await page.goto('/');
+  await page.getByRole('button',{name:item.mmsi}).click();
+  await page.getByRole('button',{name:'Открыть досье'}).click();
+  const dossier = page.getByRole('region',{name:'Досье сигнала'});
+  await expect(dossier.getByRole('heading',{name:'Внешние утверждения'})).toBeVisible();
+  await expect(dossier.getByText('Синтетическая запись')).toBeVisible();
+  await expect(dossier.getByRole('link',{name:citation.title}).first()).toHaveAttribute('href',citation.url);
+  await expect(dossier).toContainText('registry: TEST-1');
+});
