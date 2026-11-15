@@ -1,0 +1,416 @@
+{
+  "info": {
+    "name": "Shadow Fleet Detector — Local API",
+    "description": "Локальные запросы и проверки API v1. Не содержит секретов; Postman посылает запросы на localhost.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "mmsi",
+      "value": "000000000",
+      "type": "string"
+    },
+    {
+      "key": "history_from",
+      "value": "2026-11-15T00:00:00Z",
+      "type": "string"
+    },
+    {
+      "key": "history_to",
+      "value": "2026-11-15T01:00:00Z",
+      "type": "string"
+    },
+    {
+      "key": "dossier_on",
+      "value": "2026-11-15",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Позиции — весь мир",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/positions?west=-180&south=-90&east=180&north=90",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "positions"
+          ],
+          "query": [
+            {
+              "key": "west",
+              "value": "-180"
+            },
+            {
+              "key": "south",
+              "value": "-90"
+            },
+            {
+              "key": "east",
+              "value": "180"
+            },
+            {
+              "key": "north",
+              "value": "90"
+            }
+          ]
+        },
+        "description": "Текущие сохранённые позиции; пустой массив допустим, когда сборщик не запущен."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Ответ содержит время, источник и список', () => { const b = pm.response.json(); pm.expect(b.as_of).to.be.a('string'); pm.expect(b.source.id).to.eql('fintraffic'); pm.expect(b.items).to.be.an('array'); pm.expect(b.truncated).to.be.a('boolean'); });",
+              "pm.test('Кэширование отключено', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Позиции — Финский залив",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/positions?west=20&south=58&east=30&north=62",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "positions"
+          ],
+          "query": [
+            {
+              "key": "west",
+              "value": "20"
+            },
+            {
+              "key": "south",
+              "value": "58"
+            },
+            {
+              "key": "east",
+              "value": "30"
+            },
+            {
+              "key": "north",
+              "value": "62"
+            }
+          ]
+        },
+        "description": "Региональный bbox."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Позиции — антимеридиан",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/positions?west=170&south=-90&east=-170&north=90",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "positions"
+          ],
+          "query": [
+            {
+              "key": "west",
+              "value": "170"
+            },
+            {
+              "key": "south",
+              "value": "-90"
+            },
+            {
+              "key": "east",
+              "value": "-170"
+            },
+            {
+              "key": "north",
+              "value": "90"
+            }
+          ]
+        },
+        "description": "Область пересекает ±180°."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Карточка MMSI",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/positions/fintraffic/{{mmsi}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "positions",
+            "fintraffic",
+            "{{mmsi}}"
+          ]
+        },
+        "description": "Замените mmsi на MMSI из списка. 404 допустим при отсутствии записи."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Позиция найдена или отсутствует', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+              "if (pm.response.code === 200) pm.test('MMSI совпадает', () => pm.expect(pm.response.json().item.mmsi).to.eql(pm.collectionVariables.get('mmsi')));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Невалидный bbox",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/positions?west=0&south=-90&east=0&north=90",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "positions"
+          ],
+          "query": [
+            {
+              "key": "west",
+              "value": "0"
+            },
+            {
+              "key": "south",
+              "value": "-90"
+            },
+            {
+              "key": "east",
+              "value": "0"
+            },
+            {
+              "key": "north",
+              "value": "90"
+            }
+          ]
+        },
+        "description": "Проверка отклонения bbox нулевой ширины."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Код ошибки', () => pm.expect(pm.response.json().error.code).to.eql('invalid_bbox'));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Невалидный MMSI",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/positions/fintraffic/invalid",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "positions",
+            "fintraffic",
+            "invalid"
+          ]
+        },
+        "description": "Проверка синтаксиса MMSI."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Код ошибки', () => pm.expect(pm.response.json().error.code).to.eql('invalid_mmsi'));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Неизвестный источник",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/positions/unknown/000000000",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "positions",
+            "unknown",
+            "000000000"
+          ]
+        },
+        "description": "Проверка отсутствующей позиции."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "pm.test('Код ошибки', () => pm.expect(pm.response.json().error.code).to.eql('not_found'));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "История и качество AIS",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/history/fintraffic/{{mmsi}}?from={{history_from}}&to={{history_to}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "history",
+            "fintraffic",
+            "{{mmsi}}"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "{{history_from}}"
+            },
+            {
+              "key": "to",
+              "value": "{{history_to}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Поля ответа', () => {",
+              "  const payload = pm.response.json();",
+              "  pm.expect(payload.items).to.be.an('array');",
+              "  pm.expect(payload.quality).to.have.property('interval_status');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Досье сигнала",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/dossier/fintraffic/{{mmsi}}?on={{dossier_on}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "dossier",
+            "fintraffic",
+            "{{mmsi}}"
+          ],
+          "query": [
+            {
+              "key": "on",
+              "value": "{{dossier_on}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Поля ответа', () => {",
+              "  const payload = pm.response.json();",
+              "  pm.expect(payload.status).to.be.oneOf(['not_configured','no_link','linked','ambiguous']);",
+              "  pm.expect(payload.external_claims).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
