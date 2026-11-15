@@ -9,6 +9,12 @@ test('synthetic database observation reaches the map and detail', async ({page})
   await expect(page.getByText('Скорость: 0 уз.')).toBeVisible();
   await page.getByRole('button',{name:'Показать наблюдения за час'}).click();
   await expect(page.getByRole('list',{name:'История наблюдений'})).toContainText('60.0000, 25.0000');
+  await page.getByText('Качество наблюдений AIS', {exact:true}).click();
+  await expect(page.getByText('Для оценки интервала нужны хотя бы две точки.')).toBeVisible();
+  if (process.env.SFD_ACCEPT_DOSSIER === '1') {
+    await page.getByRole('button',{name:'Открыть досье'}).click();
+    await expect(page.getByText('Синтетическая иллюстрация записи реестра.', {exact:false})).toBeVisible();
+  }
 });
 
 test('synthetic failure, restart, expiration and UI recovery', async ({page}) => {
