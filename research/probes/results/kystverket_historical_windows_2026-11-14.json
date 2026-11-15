@@ -1,0 +1,75 @@
+{
+  "source": "Kystverket \u2014 NLOD; aggregated, no vessel rows saved",
+  "method_notes": "Initial batch assumed row objects and failed locally; manual shape check confirmed positional arrays. Results below use array-aware measurement. minSpeed=0 excludes stationary computed SOG per provider semantics.",
+  "attempts": [
+    {
+      "case": "previous_control",
+      "url": "https://kystdatahuset.kystverket.no/ws/api/ais/positions/within-bbox-time",
+      "query": {
+        "bbox": "5.20,59.30,5.40,59.50",
+        "start": "202601011000",
+        "end": "202601011005",
+        "minSpeed": 0
+      },
+      "started_at_utc": "2026-11-14T18:33:53.411993+00:00",
+      "http_status": 200,
+      "server_date": "Sat, 14 Nov 2026 18:33:53 GMT",
+      "has_migration_notes": true,
+      "outcome": "success",
+      "rows": 2,
+      "row_types": [
+        "list"
+      ],
+      "row_widths": [
+        12
+      ],
+      "body_sha256": "295f53b3560c9140502884ea52e9e569e46624b0f76a7140fa78b42db028b0b6"
+    },
+    {
+      "case": "same_area_other_hour",
+      "url": "https://kystdatahuset.kystverket.no/ws/api/ais/positions/within-bbox-time",
+      "query": {
+        "bbox": "5.20,59.30,5.40,59.50",
+        "start": "202601011600",
+        "end": "202601011605",
+        "minSpeed": 0
+      },
+      "started_at_utc": "2026-11-14T18:33:53.412319+00:00",
+      "http_status": 200,
+      "server_date": "Sat, 14 Nov 2026 18:33:53 GMT",
+      "has_migration_notes": true,
+      "outcome": "success",
+      "rows": 10,
+      "row_types": [
+        "list"
+      ],
+      "row_widths": [
+        12
+      ],
+      "body_sha256": "006e1af6dd7dbaa81c8d832c54cb0c0143f882cab4fe5e84f75d322c66b19793"
+    },
+    {
+      "case": "other_area_other_day",
+      "url": "https://kystdatahuset.kystverket.no/ws/api/ais/positions/within-bbox-time",
+      "query": {
+        "bbox": "10.65,59.82,10.80,59.92",
+        "start": "202601021000",
+        "end": "202601021005",
+        "minSpeed": 0
+      },
+      "started_at_utc": "2026-11-14T18:33:53.668231+00:00",
+      "http_status": 200,
+      "server_date": "Sat, 14 Nov 2026 18:33:54 GMT",
+      "has_migration_notes": true,
+      "outcome": "success",
+      "rows": 35,
+      "row_types": [
+        "list"
+      ],
+      "row_widths": [
+        12
+      ],
+      "body_sha256": "c5d83447fbd2ad7afde5edf6380105357f006a78b5f39649707d6b908e241554"
+    }
+  ]
+}

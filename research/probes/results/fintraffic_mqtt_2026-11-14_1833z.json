@@ -1,0 +1,169 @@
+{
+  "method_version": 1,
+  "fintraffic": {
+    "started_at_utc": "2026-11-14T18:33:34.986050+00:00",
+    "window_requested_s": 30,
+    "topics": [
+      "vessels-v2/+/location",
+      "vessels-v2/+/locations"
+    ],
+    "frames": 926,
+    "live_by_topic_suffix": {
+      "location": 926
+    },
+    "invalid_messages": 0,
+    "retained_messages": 0,
+    "frame_limit": 20000,
+    "connack": "Success",
+    "suback": [
+      "Granted QoS 0",
+      "Granted QoS 0"
+    ],
+    "window_started_at_utc": "2026-11-14T18:33:35.192423+00:00",
+    "window_elapsed_s": 30.001,
+    "window_ended_at_utc": "2026-11-14T18:34:05.193269+00:00",
+    "rest_start": {
+      "url": "https://meri.digitraffic.fi/api/ais/v1/locations",
+      "requested_at_utc": "2026-11-14T18:33:35.192651+00:00",
+      "http_status": 200,
+      "server_date": "Sat, 14 Nov 2026 18:33:12 GMT",
+      "wire_bytes": 32004,
+      "body_bytes": 327178,
+      "body_sha256": "92a2060aed399695fb6f9ca5aab38ad80452e99c47ef137dfc8499b56ba269dd",
+      "outcome": "json_received",
+      "received_at_utc": "2026-11-14T18:33:35.294274+00:00",
+      "elapsed_s": 0.102,
+      "profile": {
+        "rows": 784,
+        "mmsi_with_valid_point_and_provider_time": 784,
+        "observed_one_degree_cell_count": 57,
+        "provider_record_age_seconds": {
+          "n": 784,
+          "median": 127.315,
+          "p95_nearest_rank": 65880.756,
+          "over_300s": 250,
+          "over_3600s": 201
+        },
+        "invalid_mmsi_rows": 0,
+        "invalid_coordinate_rows": 0,
+        "missing_provider_time_rows": 0,
+        "future_provider_time_rows": 0,
+        "ais_time_60_to_63_rows": 21,
+        "heading_511_rows": 105,
+        "sog_102_3_rows": 6,
+        "cog_360_rows": 65,
+        "same_mmsi_time_coordinates_repeated": 0,
+        "timestamp_field_outside_0_to_63_or_missing_rows": 0
+      }
+    },
+    "rest_end": {
+      "url": "https://meri.digitraffic.fi/api/ais/v1/locations",
+      "requested_at_utc": "2026-11-14T18:34:05.194206+00:00",
+      "http_status": 200,
+      "server_date": "Sat, 14 Nov 2026 18:33:12 GMT",
+      "wire_bytes": 32004,
+      "body_bytes": 327178,
+      "body_sha256": "92a2060aed399695fb6f9ca5aab38ad80452e99c47ef137dfc8499b56ba269dd",
+      "outcome": "json_received",
+      "received_at_utc": "2026-11-14T18:34:05.307528+00:00",
+      "elapsed_s": 0.113,
+      "profile": {
+        "rows": 784,
+        "mmsi_with_valid_point_and_provider_time": 784,
+        "observed_one_degree_cell_count": 57,
+        "provider_record_age_seconds": {
+          "n": 784,
+          "median": 157.328,
+          "p95_nearest_rank": 65910.77,
+          "over_300s": 250,
+          "over_3600s": 201
+        },
+        "invalid_mmsi_rows": 0,
+        "invalid_coordinate_rows": 0,
+        "missing_provider_time_rows": 0,
+        "future_provider_time_rows": 0,
+        "ais_time_60_to_63_rows": 21,
+        "heading_511_rows": 105,
+        "sog_102_3_rows": 6,
+        "cog_360_rows": 65,
+        "same_mmsi_time_coordinates_repeated": 0,
+        "timestamp_field_outside_0_to_63_or_missing_rows": 0
+      }
+    },
+    "outcome": "live_messages",
+    "publish_timestamp_age": {
+      "n": 926,
+      "p50_s": 0.534,
+      "p95_s": 0.972,
+      "over_300s": 0,
+      "over_3600s": 0,
+      "future": 0
+    },
+    "live_mmsi_count": 297,
+    "payload_key_sets": [
+      [
+        "cog",
+        "heading",
+        "lat",
+        "lon",
+        "navStat",
+        "posAcc",
+        "raim",
+        "rot",
+        "sog",
+        "time"
+      ]
+    ],
+    "rest_start_comparison": {
+      "common_mmsi": 297,
+      "mqtt_newer_second": 297,
+      "same_second": 0,
+      "rest_newer_second": 0
+    },
+    "rest_end_comparison": {
+      "common_mmsi": 297,
+      "mqtt_newer_second": 297,
+      "same_second": 0,
+      "rest_newer_second": 0
+    }
+  },
+  "kystverket": {
+    "url": "https://kystdatahuset.kystverket.no/ws/api/ais/realtime/geojson",
+    "requested_at_utc": "2026-11-14T18:33:34.989062+00:00",
+    "http_status": 200,
+    "server_date": "Sat, 14 Nov 2026 18:33:35 GMT",
+    "wire_bytes": 1005843,
+    "body_bytes": 3709090,
+    "body_sha256": "f1e11602536872df18dcd75cf8d441a8435b589549b6187cadf5382ceeae2c2d",
+    "outcome": "json_received",
+    "received_at_utc": "2026-11-14T18:33:35.965778+00:00",
+    "elapsed_s": 0.977,
+    "profile": {
+      "features": 3649,
+      "distinct_mmsi_shaped_keys": 3636,
+      "invalid_mmsi_rows": 7,
+      "ais_class_counts": {
+        "B": 671,
+        "A": 2976,
+        "other_or_missing": 2
+      },
+      "source_timestamp_age": {
+        "n": 3649,
+        "p50_s": 13.966,
+        "p95_s": 185.966,
+        "over_300s": 61,
+        "over_3600s": 0,
+        "future": 0
+      },
+      "unparsed_time_rows": 0,
+      "naive_date_time_utc_treated_as_utc": 3649,
+      "timestamp_types": {
+        "str": 3649
+      }
+    }
+  },
+  "attribution": {
+    "fintraffic": "Fintraffic / digitraffic.fi, CC BY 4.0; aggregated",
+    "kystverket": "Kystverket, NLOD; aggregated"
+  }
+}
