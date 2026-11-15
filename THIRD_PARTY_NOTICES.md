@@ -100,3 +100,7 @@
 ## MQTT
 
 Проверка 2026-11-14: метаданные и файл лицензии установленного пакета. `paho-mqtt` 2.1.0 — EPL-2.0 OR BSD-3-Clause (метаданные; файл лицензии указывает EPL 2.0 и Eclipse Distribution License 1.0). Источник: https://pypi.org/project/paho-mqtt/2.1.0/. Полные условия и уведомления необходимо проверить до распространения.
+
+## Географическая подложка
+
+- Natural Earth Vector v5.1.2: `ne_50m_land.geojson`, `ne_50m_populated_places_simple.geojson`. [Версионированный источник](https://github.com/nvkelso/natural-earth-vector/tree/v5.1.2/geojson), [условия Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/): public domain. Локальные преобразованные файлы: `web/public/map/land.geojson` и `web/public/map/places.json`. Подписи выбраны и переведены, координаты округлены, свойства слоя суши удалены. Атрибуция: Natural Earth.
