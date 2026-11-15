@@ -1,22 +1,27 @@
-# Database design — концептуальный draft
+# Database design v0.1 — наблюдаемый сигнал и текущая позиция
 
-Предлагается PostgreSQL/PostGIS после подтверждения объёма. Таблицы ниже — логическая модель; физическая схема, типы и индексы уточняются по пробам и лицензиям.
+**Draft.** [ER-диаграмма](diagrams/data-model.html) показывает логические связи; ниже — предлагаемые типы, ограничения и индексы. [ТЗ](technical-spec.md) · [Системный дизайн](system-design.md).
 
-| Сущность | Ключ | Важные поля | Правило |
-|---|---|---|---|
-| source | source_id | owner, URL, license_url, checked_at, redistribution_policy, coverage_claim | Версионировать условия |
-| ingest_batch | batch_id | source_id, fetched_at, status, error, schema_version, payload_hash | Повторяемая диагностика |
-| raw_message_ref | message_id | batch_id, external_id, hash, storage_ref, retention_until | Хранить тело лишь если разрешено |
-| position_observation | observation_id | source_id, mmsi, observed_at, received_at, lon, lat, sog, cog, heading, quality_flags, source_message_id | Один факт наблюдения с provenance |
-| vessel_identity | identity_id | imo, names, vessel_type, confidence, valid_from/to | Временная сущность, не MMSI |
-| identity_link | link_id | identity_id, identifier_type/value, valid_from/to, source_id, evidence_ref, confidence | Конфликты допустимы |
-| latest_position | source_id + mmsi | observation_id, observed_at, updated_at, freshness_state | Проекция, не первичная история |
-| anomaly_event | event_id | kind, vessel_ref, start/end, detector_version, parameters, explanation, status | Версионированный расчёт |
-| event_observation | event_id + observation_id | role | Проверяемая связь с точками |
-| external_claim | claim_id | subject, predicate, object, source_url, published_at, observed_at, retrieved_at, quote_ref, status | Факт о том, что источник утверждал, не истина автоматически |
-| claim_identity_link | claim_id + identity_id | basis, confidence, reviewed_at | Отдельная проверка совпадения |
-| coverage_snapshot | source_id + captured_at + area_id | last_message_at, expected_scope, observed_count, health | Показывать пределы покрытия |
+| Таблица | Ключи | Поля и правила |
+|---|---|---|
+| `source` | PK `source_id text` | `display_name text`, `attribution text`, `license_url text`, `policy_checked_at date`, обязательные. Начальная строка fintraffic. Источник — организация и набор данных; REST/MQTT — способы доставки одного источника. |
+| `source_state` | PK/FK `source_id → source` | `epoch bigint NOT NULL`, `sync_state text` CHECK starting/syncing/live/degraded; `heartbeat_at timestamptz`, nullable `last_snapshot_at` и `last_mqtt_at timestamptz`; nullable диагностический `error_code text`. Один статус на источник. |
+| `latest_position` | PK `(source_id, mmsi)`, FK `source_id → source` | `mmsi text` ровно 9 цифр, начальные нули не теряются. `geom geometry(Point,4326) NOT NULL`, lon [-180,180), lat [-90,90]. `provider_time timestamptz`, `provider_bucket bigint` (Unix-секунда), `time_precision text` second/millisecond, `received_at timestamptz`, `transport text` rest/mqtt, `fingerprint bytea` (32), `time_conflict boolean`, `clock_skew boolean`. Эти поля обязательны. `clock_skew` означает provider_time > received_at у выбранного победителя; возраст в API при этом ограничен нулём. `sog_kn`, `cog_deg`, `heading_deg` nullable, валидные конечные числа > или =0; COG/heading <360. |
 
-Уникальность позиции: source_id + source_message_id, если поставщик даёт ID; иначе устойчивый хеш нормализованных source_id, MMSI, observed_at, координат и типа сообщения с сохранением исходного payload hash. Это предложение, требует теста коллизий и повторов. Внешний claim не изменяет поле identity напрямую. История append-only; исправления через новую версию и supersedes_id. На карте индекс geometry + observed_at, в истории индекс (mmsi, observed_at DESC); частичное индексирование/партиции только после замеров.
+Уникальность определяет наблюдаемый сигнал, а не судно. IMO, смена MMSI, утверждения источников, долговременное хранение и история находятся вне миграции v0.1. Удаление источника ограничено, пока есть зависимые строки. Нет каскадного удаления по умолчанию. Роли: migration DDL, collector write, API read-only.
 
-Неизвестный IMO, например 0 в Digitraffic, переводится в NULL с quality flag; исходное значение остаётся в provenance, если разрешено. Координаты проверяются в диапазонах, [lon,lat] GeoJSON не переставляются. Нужны тестовые случаи для анти-меридиана, late arrival, MMSI reuse, конфликтов имён, отсутствия timestamp и источников с запретом хранения.
+## Ключ времени и разрешение конфликтов
+
+1. Нормализация: UTC, lon +180 → -180, lat/range, фиксированная сериализация полей (координаты, speed, heading, COG). SHA-256 по каноническому содержимому; исключить receive time и transport. Задать формат чисел в контракте нормализатора; NaN/Inf не допускаются.
+2. Версия сначала сравнивается по Unix-секунде. Старший bucket выигрывает; младший игнорируется. REST сохраняет исходные миллисекунды, но не получает преимущества в сравнении с MQTT внутри секунды. Поле coarse-time используется для сортировки и merge, точное время возвращается вместе с precision.
+3. В одном bucket и с одинаковым содержимым сохраняется одна позиция; при разном содержимом выставляется `time_conflict=true`. Сам победитель определяется стабильным ключом: MQTT выше REST как продуктовая политика, далее у REST более высокий provider_time, далее лексикографический fingerprint. Одинаковое содержимое также проходит этот ключ выбора: transport и precision не зависят от порядка доставки. Для кандидатов с одинаковым полным ключом победителя выбирается минимальный received_at; clock_skew пересчитывается по нему. Флаг time_conflict объединяется через OR и не исчезает при повторе победителя. При смене bucket флаг сбрасывается. Для одной секунды эта политика не доказывает физический порядок; возможное внутреннее движение маркера — результат разрешения конфликта, а не «новое наблюдение».
+4. INSERT/условный UPSERT выполняется в одной транзакции с обновлением состояния. До записи старый epoch проверяется. Результат победителя и флаг конфликта после полного воспроизведения одной пачки не зависят от порядка событий; после TTL прошлого winner нет. API читает snapshot одной командой или read-only repeatable-read транзакцией, с единым `as_of`.
+
+Ограничения миграции: provider_bucket = floor(extract(epoch from provider_time)); time_precision и transport — CHECK перечислений; fingerprint ровно 32 байта; geom не пустая, двумерная, конечная и в заданных диапазонах. Проверки finite обязательны и для числовых полей: один CHECK >=0 не исключает NaN. epoch увеличивается атомарно после захвата lock; нулевой/отрицательный epoch запрещён. received_at задаётся на входе адаптера, не временем UPSERT. Кандидат старше 24 ч на момент обработки не вставляется повторно после TTL. Будущий сдвиг проверяется относительно received_at: >60 с отклонить, (0,60] с принять с clock_skew. Повторное воспроизведение использует сохранённый received_at, а не новые часы.
+
+## Доступ и хранение
+
+- Индекс GiST на geom для bbox, B-tree provider_bucket для TTL; PK для деталей. Замерить EXPLAIN на синтетике 5 000 позиций, не заявлять гарантированный выбор GiST для общего bbox.
+- API исключает строки с `provider_time < as_of - 24h` (точная граница включена); уборка раз в 15 минут пакетами до 1 000, пока есть старые строки в рамках бюджета цикла 2 с; следующий цикл продолжает уборку. TTL выполняет тот же писатель между пачками, отдельного конкурирующего писателя нет. Обе операции используют время источника, не время изменения строки.
+- Проекция ограничена числом наблюдаемых ключей за окно, а не числом MQTT-сообщений. Нагрузочный ориентир из двух 30-секундных проб: около 31 входного сообщения/с; это наблюдение, не верхний предел. Синтетический стресс: 100 сообщений/с в течение 60 с при очереди с ограничением.
+- Не добавлять партиции до появления истории. Если она нужна, спроектировать неизменяемые нормализованные наблюдения с источником и retention отдельно; проекцию можно пересобирать из доступной истории в следующей версии. v0.1 после потери БД восстанавливается от Fintraffic снимком и потоком, без обещания восстановить пропуски.
