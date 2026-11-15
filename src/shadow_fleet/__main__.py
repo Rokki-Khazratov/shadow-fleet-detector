@@ -1,6 +1,7 @@
 """Local administration commands."""
 import argparse
 import os
+from pathlib import Path
 
 from .store import migrate
 
@@ -39,7 +40,9 @@ def main() -> None:
             parser.error("port must be between 1 and 65535")
         import uvicorn
         from .api import Settings, create_app
-        uvicorn.run(create_app(Settings(database_url=dsn)), host="127.0.0.1", port=args.port)
+        dossier_path = os.getenv("SFD_DOSSIER_CATALOG")
+        settings = Settings(database_url=dsn, dossier_path=Path(dossier_path) if dossier_path else None)
+        uvicorn.run(create_app(settings), host="127.0.0.1", port=args.port)
 
 
 if __name__ == "__main__":

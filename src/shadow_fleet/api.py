@@ -2,7 +2,8 @@
 import math
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Callable, Literal
 
 import psycopg
@@ -12,11 +13,13 @@ from fastapi.responses import JSONResponse
 from psycopg.rows import dict_row
 from pydantic import BaseModel
 
+from .dossier import Catalog, Dossier
 from .history import HISTORY_RETENTION
 
 @dataclass(frozen=True)
 class Settings:
     database_url: str
+    dossier_path: Path | None = None
 
 
 class SourceAttribution(BaseModel):
@@ -138,7 +141,8 @@ def _history_window(from_, to):
 
 
 def create_app(settings: Settings, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC)) -> FastAPI:
-    app = FastAPI(title="Shadow Fleet Detector API", version="0.2.0")
+    app = FastAPI(title="Shadow Fleet Detector API", version="0.3.0")
+    catalog = Catalog.load(settings.dossier_path) if settings.dossier_path is not None else None
 
     @app.middleware("http")
     async def no_store(request, call_next):
@@ -237,5 +241,23 @@ def create_app(settings: Settings, *, clock: Callable[[], datetime] = lambda: da
                 return {"source": source, "mmsi": mmsi, "items": rows[:cap], "truncated": len(rows) > cap}
         except psycopg.Error:
             return _error("database_unavailable", "Database unavailable", 503)
+
+    @app.get("/v1/dossier/{source_id}/{mmsi}", response_model=Dossier,
+             responses={400: {"model": ErrorResponse}})
+    def dossier(source_id: str, mmsi: str, on: str | None = Query(None)):
+        if not re.fullmatch(r"[0-9]{9}", mmsi) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,47}", source_id):
+            return _error("invalid_signal", "Provide a source ID and nine-digit MMSI", 400)
+        try:
+            if on is None:
+                day = clock().astimezone(UTC).date()
+            elif re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", on):
+                day = date.fromisoformat(on)
+            else:
+                raise ValueError("invalid date")
+        except ValueError:
+            return _error("invalid_date", "Use YYYY-MM-DD for on", 400)
+        if catalog is None:
+            return Dossier(source_id=source_id, mmsi=mmsi, on=day, status="not_configured")
+        return catalog.dossier(source_id, mmsi, day)
 
     return app

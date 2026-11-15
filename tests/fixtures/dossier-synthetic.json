@@ -1,0 +1,33 @@
+{
+  "bindings": [
+    {
+      "source_id": "fintraffic",
+      "mmsi": "987654321",
+      "namespace": "synthetic-register",
+      "identifier": "DEMO-01",
+      "since": "2020-01-01",
+      "until": "2100-01-01",
+      "citation": {
+        "title": "Синтетический пример реестра",
+        "url": "https://example.org/synthetic-register",
+        "retrieved_on": "2026-11-15",
+        "license_note": "Тестовая запись, не сведения о реальном судне"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "namespace": "synthetic-register",
+      "identifier": "DEMO-01",
+      "kind": "registry_record",
+      "statement": "Синтетическая иллюстрация записи реестра.",
+      "published_on": "2020-01-01",
+      "citation": {
+        "title": "Синтетический пример реестра",
+        "url": "https://example.org/synthetic-register",
+        "retrieved_on": "2026-11-15",
+        "license_note": "Тестовая запись, не сведения о реальном судне"
+      }
+    }
+  ]
+}
