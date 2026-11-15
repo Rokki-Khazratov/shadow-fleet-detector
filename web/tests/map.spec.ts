@@ -179,3 +179,21 @@ test('dossier separates source citations from the AIS detail', async ({page}) =>
   await expect(dossier.getByRole('link',{name:citation.title}).first()).toHaveAttribute('href',citation.url);
   await expect(dossier).toContainText('registry: TEST-1');
 });
+
+test('AIS quality reports an observed interval without assigning a cause', async ({page}) => {
+  const asOf = '2026-01-01T01:00:00Z';
+  const later = {...item, provider_time:'2026-01-01T00:20:00Z'};
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:asOf,source,item}}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:asOf,source,items:[item],truncated:false}}));
+  await page.route('**/v1/history/**', r => r.fulfill({json:{source,mmsi:item.mmsi,items:[item,later],truncated:false,
+    quality:{observed_points:2,conflict_count:0,clock_skew_count:0,interval_status:'assessed',
+      long_interval_threshold_seconds:900,long_interval_count:1,
+      long_intervals:[{before:item.provider_time,after:later.provider_time,duration_seconds:1200}]},
+  }}));
+  await page.goto('/');
+  await page.getByRole('button',{name:item.mmsi}).click();
+  await page.getByRole('button',{name:'Показать наблюдения за час'}).click();
+  await page.getByText('Качество наблюдений AIS', {exact:true}).click();
+  await expect(page.getByText('Интервалы ≥ 15 мин: 1.')).toBeVisible();
+  await expect(page.getByText('Причина интервалов неизвестна.')).toBeVisible();
+});

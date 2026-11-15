@@ -1,8 +1,11 @@
+import { qualityDetails, type QualityReport } from './quality';
+
 export interface HistoryPoint {provider_time: string; lat: number; lon: number; time_conflict: boolean}
 
 interface HistoryPage {
   items: HistoryPoint[];
   truncated: boolean;
+  quality?: QualityReport;
 }
 
 export function historyPanel(sourceId: string, mmsi: string, asOf: string, signal: AbortSignal, onPoints: (points: HistoryPoint[]) => void) {
@@ -52,6 +55,7 @@ export function historyPanel(sourceId: string, mmsi: string, asOf: string, signa
         list.append(li);
       }
       output.append(list);
+      if (page.quality) output.append(qualityDetails(page.quality));
     } catch {
       if (!signal.aborted) show('История временно недоступна.');
     } finally {
