@@ -1,0 +1,15 @@
+[project]
+name = "shadow-fleet-detector"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["psycopg[binary]==3.2.13", "fastapi==0.115.12", "uvicorn==0.34.3", "httpx==0.28.1", "paho-mqtt==2.1.0"]
+
+[project.optional-dependencies]
+test = ["pytest==8.4.2", "ruff==0.14.6", "httpx==0.28.1"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools>=75,<81"]
+build-backend = "setuptools.build_meta"
