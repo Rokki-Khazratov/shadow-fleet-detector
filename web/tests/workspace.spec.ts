@@ -29,6 +29,28 @@ test('appearance can switch without reloading the map', async ({page}) => {
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
 });
 
+test('mobile history brings the chart and selected point into view', async ({page}, info) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/?demo=1');
+  await page.getByRole('button',{name:'900000002',exact:true}).click();
+  await page.getByRole('combobox',{name:'Период истории'}).selectOption('24');
+  await page.getByRole('button',{name:'Показать наблюдения за 24 часа'}).click();
+  const row = page.getByRole('list',{name:'История наблюдений'}).getByRole('button').first();
+  await row.focus();
+  await page.screenshot({path:info.outputPath('history-mobile-list.png')});
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#map canvas')).toBeFocused();
+  await expect(page.locator('.history-popup')).toBeInViewport();
+  await expect(row).toHaveAttribute('aria-pressed','true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({path:info.outputPath('history-mobile-map.png')});
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.history-popup')).toHaveCount(0);
+  await expect(row).toBeFocused();
+  await expect(row).toBeInViewport();
+  await expect(row).toHaveAttribute('aria-pressed','false');
+});
+
 test('chart workspace fits wide, medium, and narrow layouts', async ({page}, info) => {
   await page.goto('/?demo=1');
   await expect(page.getByRole('status')).toContainText('Синтетические данные');

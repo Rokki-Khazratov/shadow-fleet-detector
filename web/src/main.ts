@@ -6,7 +6,7 @@ import {demoMode, request} from './api';
 import {createChart, type Theme} from './chart';
 import {dossierPanel} from './dossier';
 import {historyPanel} from './history';
-import {historyLayer} from './history-layer';
+import {historyLayer, type HistoryOverlay} from './history-layer';
 import type {Detail, Page, Position} from './types';
 import {element, emptyState, icons, mountWorkspace} from './workspace';
 
@@ -43,7 +43,7 @@ let selection: AbortController | undefined;
 let detailState: {data: Detail; receivedAt: number} | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let ready = false;
-let drawHistory: ReturnType<typeof historyLayer> = () => {};
+let history: HistoryOverlay | undefined;
 
 function showConnection(message: string, tone: string) {
   network.textContent = message;
@@ -60,6 +60,7 @@ function syncTheme() {
   themeButton.title = label;
   themeButton.innerHTML = theme === 'dark' ? icons.light : icons.dark;
   chart.applyTheme(theme);
+  history?.applyTheme(theme);
 }
 syncTheme();
 themeButton.addEventListener('click', () => {
@@ -85,7 +86,7 @@ function closeDetail(restoreFocus: boolean) {
   detailState = undefined;
   selectedKey = undefined;
   selectedPoint = undefined;
-  drawHistory([]);
+  history?.replace([]);
   setSelectedButtons();
   chart.positions(filtered(), undefined);
   resetDetail();
@@ -118,7 +119,7 @@ function unavailable(message: string) {
 }
 
 function renderDetail(offline: boolean) {
-  if (!detailState || !selection) return;
+  if (!detailState || !selection || !history) return;
   const {data, receivedAt} = detailState;
   const {as_of, source} = data;
   const p = offline ? cached(data.item, as_of, receivedAt) : data.item;
@@ -127,7 +128,7 @@ function renderDetail(offline: boolean) {
     summary = element('div','','detail-summary');
     const signal = selection.signal;
     box.replaceChildren(detailHead(p.mmsi,'data'),summary,
-      historyPanel(p.source_id,p.mmsi,() => detailState?.data.as_of ?? as_of,signal,drawHistory),
+      historyPanel(p.source_id,p.mmsi,() => detailState?.data.as_of ?? as_of,signal,history),
       dossierPanel(p.source_id,p.mmsi,() => detailState?.data.item.provider_time ?? p.provider_time,signal));
   }
   const meta = element('p',`${p.stale ? 'Устарела' : 'Свежая точка'} · ${ageLabel(p.age_seconds)} назад · ${p.transport.toUpperCase()}`,'detail-meta');
@@ -176,7 +177,7 @@ function select(p: Position) {
   selection?.abort();
   selection = new AbortController();
   detailState = undefined;
-  drawHistory([]);
+  history?.replace([]);
   selectedKey = key(p);
   selectedPoint = p;
   setSelectedButtons();
@@ -283,14 +284,18 @@ box.addEventListener('keydown',event => {
 resetDetail();
 list.replaceChildren(element('p','Загрузка наблюдений…','placeholder-copy'));
 map.on('load',() => {
-  drawHistory = historyLayer(map,el('history-legend'));
-  map.on('click','points',event => {
-    const feature = event.features?.[0]?.properties;
-    const position = filtered().find(p => p.mmsi === feature?.mmsi && p.source_id === feature.source_id);
-    if (position) void select(position);
+  history = historyLayer(map,el('history-legend'));
+  map.on('click',event => {
+    const feature = map.queryRenderedFeatures(event.point,{layers:['points']})[0]?.properties;
+    const position = feature && filtered().find(p => p.mmsi === feature.mmsi && p.source_id === feature.source_id);
+    if (position && key(position) !== selectedKey) {
+      select(position);
+      return;
+    }
+    history?.inspectAt(event);
   });
-  map.on('mouseenter','points',() => {map.getCanvas().style.cursor = 'pointer';});
-  map.on('mouseleave','points',() => {map.getCanvas().style.cursor = '';});
+  map.on('mouseenter',['points','history-points'],() => {map.getCanvas().style.cursor = 'pointer';});
+  map.on('mouseleave',['points','history-points'],() => {map.getCanvas().style.cursor = '';});
   ready = true;
   syncTheme();
   void refresh();

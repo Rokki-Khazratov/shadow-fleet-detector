@@ -39,8 +39,8 @@ export function demoResponse(path: string): Response {
     const end = Date.parse(url.searchParams.get('to') ?? '');
     const offsets = [1070, 660, 370, 265, 144, 69, 28, 19, 11, 6, 2];
     const items = offsets.map((minutes, i) => ({...item,
-      provider_time:iso(item.age_seconds + minutes*60), lon:item.lon - (offsets.length-i)*0.035,
-      lat:item.lat - (offsets.length-i)*0.008,
+      provider_time:iso(item.age_seconds + minutes*60), lon:item.lon - (offsets.length-i)*0.105,
+      lat:item.lat - (offsets.length-i)*0.013 + Math.sin(i)*0.027,
     })).filter(p => Date.parse(p.provider_time) >= start && Date.parse(p.provider_time) < end);
     const threshold = 900;
     const longIntervals = items.slice(1).flatMap((after,i) => {

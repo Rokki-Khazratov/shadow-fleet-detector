@@ -1,5 +1,7 @@
 import { demoMode, request } from './api';
+import type { HistoryOverlay } from './history-layer';
 import { qualityDetails, type QualityReport } from './quality';
+import { icons } from './workspace';
 
 export interface HistoryPoint {provider_time: string; lat: number; lon: number; time_conflict: boolean}
 
@@ -19,8 +21,9 @@ const utc = new Intl.DateTimeFormat('ru-RU', {
   timeZone:'UTC', day:'2-digit', month:'2-digit', year:'numeric',
   hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23',
 });
+export const historyTime = (value: string) => `${utc.format(new Date(value))} UTC`;
 
-export function historyPanel(sourceId: string, mmsi: string, asOf: () => string, signal: AbortSignal, onPoints: (points: HistoryPoint[]) => void) {
+export function historyPanel(sourceId: string, mmsi: string, asOf: () => string, signal: AbortSignal, overlay: HistoryOverlay) {
   const panel = document.createElement('section');
   panel.className = 'history';
   panel.setAttribute('aria-label','История сигнала');
@@ -50,7 +53,7 @@ export function historyPanel(sourceId: string, mmsi: string, asOf: () => string,
     button.disabled = false;
     updateLabel();
     output.replaceChildren();
-    onPoints([]);
+    overlay.replace([]);
   });
   const show = (message: string) => {
     const text = document.createElement('p');
@@ -64,7 +67,7 @@ export function historyPanel(sourceId: string, mmsi: string, asOf: () => string,
     const controller = active = new AbortController();
     button.disabled = true;
     show('Загрузка истории…');
-    onPoints([]);
+    overlay.replace([]);
     try {
       const end = new Date(asOf());
       const start = new Date(end.getTime() - window.hours * 3_600_000);
@@ -74,7 +77,6 @@ export function historyPanel(sourceId: string, mmsi: string, asOf: () => string,
       if (!response.ok) throw new Error('history request failed');
       const page: HistoryPage = await response.json();
       if (controller.signal.aborted) return;
-      onPoints(page.items);
       show(page.items.length === 0 ? `${window.empty} нет сохранённых наблюдений.`
         : page.truncated ? `Показаны первые ${limit} наблюдений ${window.context}.`
         : demoMode ? 'Синтетические наблюдения' : 'Сохранённые наблюдения');
@@ -84,19 +86,52 @@ export function historyPanel(sourceId: string, mmsi: string, asOf: () => string,
       output.append(range);
       if (!page.items.length) return;
       const list = document.createElement('ul');
+      list.setAttribute('role','list');
       list.setAttribute('aria-label','История наблюдений');
-      list.className = 'history-list';
+      list.className = 'history-list history-observations';
+      const rows = new Map<string,HTMLButtonElement>();
       for (const point of page.items) {
         const li = document.createElement('li');
         const time = document.createElement('time');
         time.dateTime = point.provider_time;
-        time.textContent = `${utc.format(new Date(point.provider_time))} UTC`;
-        li.append(time, ` · ${point.lat.toFixed(4)}, ${point.lon.toFixed(4)}`);
-        if (point.time_conflict) li.append(' · конфликт');
+        time.textContent = historyTime(point.provider_time);
+        const coordinates = document.createElement('span');
+        coordinates.textContent = `${point.lat.toFixed(4)}, ${point.lon.toFixed(4)}`
+          + (point.time_conflict ? ' · конфликт времени' : '');
+        const label = document.createElement('span');
+        label.append(time,coordinates);
+        const locate = document.createElement('span');
+        locate.innerHTML = icons.reset;
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'history-observation';
+        row.setAttribute('aria-label',`Показать на карте: ${time.textContent}, ${coordinates.textContent}`);
+        row.setAttribute('aria-pressed','false');
+        row.addEventListener('click',() => overlay.inspect(point,() => {
+          if (row.isConnected) row.focus();
+        }));
+        row.append(label,locate);
+        rows.set(point.provider_time,row);
+        li.append(row);
         list.append(li);
       }
-      output.append(list);
+      const hint = document.createElement('p');
+      hint.className = 'history-hint';
+      hint.textContent = 'Выберите наблюдение, чтобы показать его на карте.';
+      output.append(hint,list);
       if (page.quality) output.append(qualityDetails(page.quality));
+      let highlighted: HTMLButtonElement | undefined;
+      overlay.replace(page.items,point => {
+        highlighted?.setAttribute('aria-pressed','false');
+        highlighted = point ? rows.get(point.provider_time) : undefined;
+        if (highlighted) {
+          highlighted.setAttribute('aria-pressed','true');
+          const row = highlighted.getBoundingClientRect();
+          const viewport = list.getBoundingClientRect();
+          if (row.top < viewport.top) list.scrollTop -= viewport.top - row.top;
+          if (row.bottom > viewport.bottom) list.scrollTop += row.bottom - viewport.bottom;
+        }
+      });
     } catch {
       if (!controller.signal.aborted) show('История временно недоступна.');
     } finally {

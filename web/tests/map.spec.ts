@@ -263,10 +263,84 @@ test('history point can be inspected on the map and clears on selection', async 
     await page.mouse.click(canvas!.x + canvas!.width / 2 + 45.5, canvas!.y + canvas!.height / 2);
     await expect(page.locator('.maplibregl-popup')).toContainText('25.5000', {timeout:300});
   }).toPass({timeout:4000});
+  const row = page.getByRole('list',{name:'История наблюдений'}).getByRole('button');
+  await expect(row).toHaveAttribute('aria-pressed','true');
+  await page.locator('.maplibregl-popup-close-button').click();
+  await expect(row).toHaveAttribute('aria-pressed','false');
+  await row.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.maplibregl-popup')).toContainText('25.5000');
+  await expect(row).toBeFocused();
   await page.getByRole('button',{name:other.mmsi}).click();
   await expect(page.getByRole('heading',{name:other.mmsi})).toBeVisible();
   await expect(page.getByText('Точки истории выбранного сигнала')).toBeHidden();
   await expect(page.locator('.maplibregl-popup')).toHaveCount(0);
+});
+
+test('a historical point outside the visible area can be located from the list', async ({page}) => {
+  const asOf = '2026-01-01T01:00:00Z';
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:asOf,source,item}}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:asOf,source,items:[item],truncated:false}}));
+  await page.route('**/v1/history/**', r => r.fulfill({json:{
+    items:[{...item, lat:58.5, lon:42}],truncated:false,
+  }}));
+  await page.goto('/');
+  await page.getByRole('button',{name:item.mmsi}).click();
+  await page.getByRole('button',{name:'Показать наблюдения за час'}).click();
+  const row = page.getByRole('list',{name:'История наблюдений'}).getByRole('button');
+  await expect(row).toBeVisible({timeout:3000});
+  await row.click();
+  await expect(page.locator('#map-centre')).toContainText('58.5000° N · 42.0000° E');
+  await expect(page.locator('.maplibregl-popup')).toContainText('42.0000');
+  await expect(row).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('combobox',{name:'Период истории'}).selectOption('6');
+  await expect(page.locator('.maplibregl-popup')).toHaveCount(0);
+});
+
+test('coincident current and historical positions leave history inspectable', async ({page}) => {
+  const asOf = '2026-01-01T01:00:00Z';
+  const earlier = {...item,provider_time:'2026-01-01T00:15:00Z'};
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:asOf,source,item}}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:asOf,source,items:[item],truncated:false}}));
+  await page.route('**/v1/history/**', r => r.fulfill({json:{items:[earlier],truncated:false}}));
+  await page.goto('/');
+  await page.getByRole('button',{name:item.mmsi}).click();
+  await page.getByRole('button',{name:'Показать наблюдения за час'}).click();
+  const canvas = await page.locator('#map canvas').boundingBox();
+  const row = page.getByRole('list',{name:'История наблюдений'}).getByRole('button');
+  await expect(row).toBeVisible();
+  await expect(async () => {
+    await page.mouse.click(canvas!.x + canvas!.width / 2,canvas!.y + canvas!.height / 2);
+    await expect(page.locator('.history-popup')).toContainText('00:15:00',{timeout:300});
+  }).toPass({timeout:3000});
+  await expect(row).toHaveAttribute('aria-pressed','true');
+});
+
+test('a different signal remains selectable at the centre of an overlapping point', async ({page}) => {
+  const asOf = '2026-01-01T01:00:00Z';
+  const selected = {...item,lon:25.7};
+  const other = {...item,mmsi:'987654321'};
+  const earlier = {...item,provider_time:'2026-01-01T00:15:00Z'};
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:asOf,source,
+    item:r.request().url().endsWith(other.mmsi) ? other : selected,
+  }}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:asOf,source,items:[selected,other],truncated:false}}));
+  await page.route('**/v1/history/**', r => r.fulfill({json:{items:[earlier],truncated:false}}));
+  await page.goto('/');
+  await page.getByRole('button',{name:selected.mmsi}).click();
+  await page.getByRole('button',{name:'Показать наблюдения за час'}).click();
+  await expect(page.getByText('Точки истории выбранного сигнала')).toBeVisible();
+  const canvas = await page.locator('#map canvas').boundingBox();
+  const x = canvas!.x + canvas!.width / 2;
+  const y = canvas!.y + canvas!.height / 2;
+  await expect(async () => {
+    await page.mouse.click(x + 7,y);
+    await expect(page.locator('.history-popup')).toContainText('00:15:00',{timeout:300});
+  }).toPass({timeout:3000});
+  await page.getByRole('button',{name:'Закрыть историческую точку'}).click();
+  await page.mouse.click(x,y);
+  await expect(page.getByRole('heading',{name:other.mmsi,exact:true})).toBeVisible({timeout:3000});
+  await expect(page.locator('.history-popup')).toHaveCount(0);
 });
 
 test('dossier separates source citations from the AIS detail', async ({page}) => {
