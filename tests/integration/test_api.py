@@ -188,6 +188,7 @@ def test_history_returns_bounded_ordered_observations_with_attribution(db, clien
     assert data['source']['id'] == 'fintraffic'
     assert 'CC BY 4.0' in data['source']['attribution']
     assert data['mmsi'] == '000000001' and data['truncated'] is True
+    assert data['quality']['interval_status'] == 'truncated' and data['quality']['long_interval_count'] is None
     assert [datetime.fromisoformat(point['provider_time']) for point in data['items']] == [
         NOW - timedelta(seconds=3), NOW - timedelta(seconds=2)]
     assert not {'fingerprint', 'age_seconds', 'stale'} & data['items'][0].keys()
@@ -195,6 +196,7 @@ def test_history_returns_bounded_ordered_observations_with_attribution(db, clien
         'from': (NOW - timedelta(seconds=3)).isoformat(), 'to': NOW.isoformat(),
     }).json()
     assert len(unclipped['items']) == 3 and unclipped['truncated'] is False
+    assert unclipped['quality']['interval_status'] == 'assessed' and unclipped['quality']['long_interval_count'] == 0
 
 
 def test_history_validates_window_and_distinguishes_empty_from_unknown_source(client):

@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from .dossier import Catalog, Dossier
 from .history import HISTORY_RETENTION
+from .quality import QualityReport, assess_observations
 
 @dataclass(frozen=True)
 class Settings:
@@ -60,6 +61,7 @@ class ObservationHistory(BaseModel):
     mmsi: str
     items: list[Observation]
     truncated: bool
+    quality: QualityReport
 
 
 class PositionPage(BaseModel):
@@ -141,7 +143,7 @@ def _history_window(from_, to):
 
 
 def create_app(settings: Settings, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC)) -> FastAPI:
-    app = FastAPI(title="Shadow Fleet Detector API", version="0.3.0")
+    app = FastAPI(title="Shadow Fleet Detector API", version="0.4.0")
     catalog = Catalog.load(settings.dossier_path) if settings.dossier_path is not None else None
 
     @app.middleware("http")
@@ -238,7 +240,9 @@ def create_app(settings: Settings, *, clock: Callable[[], datetime] = lambda: da
                       AND provider_time >= %s AND provider_time < %s
                     ORDER BY provider_bucket LIMIT %s""",
                     (source_id, mmsi, math.floor(cutoff.timestamp()), math.ceil(end.timestamp()), cutoff, end, cap + 1)).fetchall()
-                return {"source": source, "mmsi": mmsi, "items": rows[:cap], "truncated": len(rows) > cap}
+                items, truncated = rows[:cap], len(rows) > cap
+                return {"source": source, "mmsi": mmsi, "items": items, "truncated": truncated,
+                        "quality": assess_observations(items, truncated=truncated)}
         except psycopg.Error:
             return _error("database_unavailable", "Database unavailable", 503)
 
