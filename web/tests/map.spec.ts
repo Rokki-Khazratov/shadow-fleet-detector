@@ -174,6 +174,75 @@ test('empty history is different from an unavailable API', async ({page}) => {
   await expect(page.getByText('История временно недоступна.')).toBeVisible();
 });
 
+test('history uses the selected UTC window and discards the previous window', async ({page}) => {
+  const asOf = '2026-01-02T01:00:00Z';
+  const first = {...item, provider_time:'2026-01-02T00:09:02Z'};
+  const older = {...item, provider_time:'2026-01-01T22:03:04Z'};
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:asOf,source,item}}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:asOf,source,items:[item],truncated:false}}));
+  await page.route('**/v1/history/**', r => r.fulfill({json:{source,mmsi:item.mmsi,
+    items:new URL(r.request().url()).searchParams.get('from')?.startsWith('2026-01-01') ? [older,first] : [first],
+    truncated:false,
+  }}));
+  await page.goto('/');
+  await page.getByRole('button',{name:item.mmsi}).click();
+  const history = page.getByRole('list',{name:'История наблюдений'});
+  await page.getByRole('button',{name:'Показать наблюдения за час'}).click();
+  await expect(history).toContainText('00:09:02');
+  await page.getByRole('combobox',{name:'Период истории'}).selectOption('6');
+  await expect(history).toHaveCount(0);
+  await expect(page.getByText('Точки истории выбранного сигнала')).toBeHidden();
+  const pending = page.waitForRequest('**/v1/history/**');
+  await page.getByRole('button',{name:'Показать наблюдения за 6 часов'}).click();
+  const query = new URL((await pending).url()).searchParams;
+  expect(query.get('from')).toBe('2026-01-01T19:00:00.000Z');
+  expect(query.get('to')).toBe('2026-01-02T01:00:00.000Z');
+  await expect(history.locator('time')).toHaveText([/01\.01\.2026,? 22:03:04/, /02\.01\.2026,? 00:09:02/]);
+});
+
+test('a delayed response cannot restore the old history window', async ({page}) => {
+  const asOf = '2026-01-02T01:00:00Z';
+  let releaseOld!: () => void;
+  let oldHandled!: () => void;
+  const stalled = new Promise<void>(resolve => {releaseOld = resolve;});
+  const oldFinished = new Promise<void>(resolve => {oldHandled = resolve;});
+  await page.route('**/v1/positions/**', r => r.fulfill({json:{as_of:asOf,source,item}}));
+  await page.route('**/v1/positions?**', r => r.fulfill({json:{as_of:asOf,source,items:[item],truncated:false}}));
+  await page.route('**/v1/history/**', async r => {
+    const from = new URL(r.request().url()).searchParams.get('from');
+    if (from === '2026-01-02T00:00:00.000Z') {
+      await stalled;
+      try {
+        await r.fulfill({json:{items:[{...item,provider_time:'2026-01-02T00:35:00Z'}],truncated:false}});
+      } catch {
+        // The browser can already have canceled the old request.
+      } finally {
+        oldHandled();
+      }
+      return;
+    }
+    await r.fulfill({json:{items:[{...item,provider_time:'2026-01-01T03:27:00Z'}],truncated:false}});
+  });
+  try {
+    await page.goto('/');
+    await page.getByRole('button',{name:item.mmsi}).click();
+    const old = page.waitForRequest('**/v1/history/**');
+    await page.getByRole('button',{name:'Показать наблюдения за час'}).click();
+    await old;
+    await page.getByRole('combobox',{name:'Период истории'}).selectOption('24');
+    const next = page.waitForRequest('**/v1/history/**');
+    await page.getByRole('button',{name:'Показать наблюдения за 24 часа'}).click();
+    expect(new URL((await next).url()).searchParams.get('from')).toBe('2026-01-01T01:00:00.000Z');
+    const dates = page.getByRole('list',{name:'История наблюдений'}).locator('time');
+    await expect(dates).toHaveText([/01\.01\.2026,? 03:27:00/]);
+    releaseOld();
+    await oldFinished;
+    await expect(dates).toHaveText([/01\.01\.2026,? 03:27:00/]);
+  } finally {
+    releaseOld();
+  }
+});
+
 test('history point can be inspected on the map and clears on selection', async ({page}) => {
   const asOf = '2026-01-01T01:00:00Z';
   const other = {...item,mmsi:'987654321'};

@@ -37,14 +37,22 @@ export function demoResponse(path: string): Response {
   if (route === 'history') {
     const start = Date.parse(url.searchParams.get('from') ?? '');
     const end = Date.parse(url.searchParams.get('to') ?? '');
-    const items = [28, 19, 11, 6, 2].map((minutes, i) => ({...item,
-      provider_time:iso(item.age_seconds + minutes*60), lon:item.lon - (5-i)*0.035,
-      lat:item.lat - (5-i)*0.008,
+    const offsets = [1070, 660, 370, 265, 144, 69, 28, 19, 11, 6, 2];
+    const items = offsets.map((minutes, i) => ({...item,
+      provider_time:iso(item.age_seconds + minutes*60), lon:item.lon - (offsets.length-i)*0.035,
+      lat:item.lat - (offsets.length-i)*0.008,
     })).filter(p => Date.parse(p.provider_time) >= start && Date.parse(p.provider_time) < end);
+    const threshold = 900;
+    const longIntervals = items.slice(1).flatMap((after,i) => {
+      const before = items[i]!.provider_time;
+      const seconds = (Date.parse(after.provider_time) - Date.parse(before)) / 1000;
+      return seconds < threshold ? [] : [{before,after:after.provider_time,duration_seconds:seconds}];
+    });
     return Response.json({source, mmsi:item.mmsi, items, truncated:false, quality:{
       observed_points:items.length, conflict_count:0, clock_skew_count:0,
       interval_status:items.length > 1 ? 'assessed' : 'insufficient',
-      long_interval_threshold_seconds:900, long_interval_count:items.length > 1 ? 0 : null, long_intervals:[],
+      long_interval_threshold_seconds:threshold, long_interval_count:items.length > 1 ? longIntervals.length : null,
+      long_intervals:longIntervals,
     }});
   }
   return Response.json({error:{code:'not_found'}}, {status:404});
