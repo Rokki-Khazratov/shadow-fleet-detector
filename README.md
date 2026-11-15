@@ -1,74 +1,90 @@
 # Shadow Fleet Detector
 
 ```text
-                   .     ·          .
+                   ·              .
     ~ ~ ~    >──────●     ~ ~ ~
-          maritime signals / visible evidence
+             maritime signals / visible evidence
 ```
 
-**A global vessel map. Explainable signals. Traceable evidence.**
+**An exploratory vessel map for following maritime signals and investigating the evidence behind them.**
 
-Глобальная карта морского движения по образцу Flightradar: все типы судов, актуальные доступные позиции и исследование возможных связей с теневым флотом.
+Shadow Fleet Detector is a research-driven project with a long-term ambition: make maritime movement easier to explore, and help researchers examine potential connections to the shadow fleet with transparent sources and uncertainty. The intended experience is a global map for all types of vessels, using free data where possible.
 
-> **Локальный прототип · Бесплатные источники в приоритете**
->
-> Карта и API проходят локальную приёмку на синтетике. Глобальное покрытие и публичный выпуск остаются целью.
+> **Current status: local prototype.** The current implementation uses Fintraffic as its position source and has been tested locally with synthetic data. Global coverage, continuous live operation and public deployment have not been established. The project does not identify vessels as part of a shadow fleet.
 
-## Концепция
+## What you can explore today
 
-Открыть карту → выбрать судно → изучить сведения, маршрут, аномалии и внешние свидетельства. Исследовательские признаки доступны отдельными слоями; досье раскрывает основания каждого вывода.
+- **Current positions:** a local map and read API show available Fintraffic observations, their timestamps, freshness and source status. Coverage is limited to what the source provides; an empty area does not mean there are no vessels.
+- **History:** an optional local history stores and displays individual observations within a bounded retention window. It does not reconstruct a complete route.
+- **Dossier:** a local catalogue can hold dated links and external claims with source references. It is empty by default, and ambiguous identities remain unresolved.
+- **Data quality:** a neutral summary describes gaps between saved observations, time conflicts and clock differences. It does not infer the causes of those gaps.
+- **Synthetic demo:** explore the interface without a database, API or live AIS connection. Demo observations are explicitly labelled as synthetic.
 
-Текущее движение — основной сценарий. История рассматривается как дополнительный режим. Для каждой позиции предполагается показывать время последнего сообщения. Глобальная карта не означает полное покрытие всех судов: пробелы и устаревшие данные должны быть видимыми.
+AIS observations are signals, not proof of misconduct. A sanctions listing, an unusual movement pattern and an association with the shadow fleet are distinct claims. The project aims to keep observations, external claims and analytical hypotheses separate and traceable.
 
-## Теневой флот и доказательства
+## Try the synthetic demo
 
-Направление теневого флота входит в проект. Внешние свидетельства отделяются от собственных гипотез. Санкционный статус, аномалия AIS и связь с теневым флотом — разные признаки. Для внешних сведений нужны источник и дата; необычное движение само по себе не доказывает нарушение.
+The demo needs Node.js in the range specified in [web/package.json](web/package.json). From the repository root:
 
-## Статус
+```sh
+cd web
+npm ci
+npm run dev
+```
 
-Это исследовательский pet project для портфолио с открытым развитием. Фиксированные сроки и обязательный набор кейсов не установлены. В локальном прототипе используются FastAPI, PostgreSQL/PostGIS, MapLibre и один источник позиций — Fintraffic.
+Open **http://127.0.0.1:5173/?demo=1**. The demo uses synthetic data and does not need the backend or PostgreSQL. The map background and city labels use local Natural Earth assets; see the [interface and attribution notes](docs/design/workspace.md).
 
-## Данные и движки
+For the full local setup, including Python 3.12, Docker, PostgreSQL/PostGIS, migrations and a read-only API role, follow the [local run guide](docs/run-local.md). The collector is a separate process: running it connects to the real Fintraffic service. Live collection and source coverage need further verification before use beyond a local experiment.
 
-Пока рассматриваем бесплатные источники. Blueprint перечисляет NOAA, Danish AIS, Norway AIS, AISstream, Global Fishing Watch и OpenSanctions; пригодность каждого для текущей карты, покрытие и условия предстоит проверить. Исторические данные и производные события не заменяют поток текущих позиций.
+## How it fits together
 
-Python, Polars/DuckDB, готовые AIS-инструменты и объяснимые правила остаются кандидатами, а не утверждённой архитектурой.
+```text
+ Fintraffic REST + MQTT
+           │
+           ▼
+ Collector → PostgreSQL / PostGIS → Read API → MapLibre interface
+                    │
+                    └── optional local history and dossier data
+```
 
-## Документация
+The collector reconciles a snapshot with incoming updates and writes the current position projection. The API reads stored observations and source health; the browser displays them with their age and attribution. The architecture and thresholds remain under review as the implementation develops.
 
-| Материал | Содержание |
-|---|---|
-| [Контекст](docs/context.md) | Пожелания и актуальное направление |
-| [Решения](docs/decisions.md) | Ответы пользователя и изменения курса |
-| [Brainstorming](docs/brainstorming.md) | Дерево вопросов и история раундов |
-| [План discovery](docs/plan.md) | Исследовательские шаги до ТЗ |
-| [Данные и API](docs/data-and-api.md) | Реестр источников и статус проверок |
-| [Фундамент источников](docs/research/source-foundation-plan.md) | План исследования, критерии выхода и первые замеры |
-| [Готовность к разработке](docs/research/development-readiness.md) | Доказательства, границы первого среза и проверки перед стартом |
-| [План v0.1](docs/architecture/technical-plan.md) | ТЗ, системный дизайн, БД, схемы и проверки приёмки |
-| [Движки](docs/engines.md) | Компоненты для сравнения |
-| [Валидация](docs/validation.md) | Доказательства и ложные срабатывания |
-| [Лицензирование](docs/licenses.md) | Открытые решения и права на данные |
-| [Дизайн](docs/design-direction.md) | Визуальные ориентиры |
-| [Исходный blueprint](docs/reference/README.md) | Оригинал и навигация по разделам |
-| [Правила агента](AGENTS.md) | Как продолжать работу с контекстом |
+**Current stack:** Python, FastAPI, PostgreSQL/PostGIS, Paho MQTT, TypeScript, Vite and MapLibre GL JS. See the [system design](docs/architecture/system-design.md), [database design](docs/architecture/database-design.md) and [API reference](docs/api/v1.md) for details.
 
-Более поздние решения в журнале имеют приоритет над ранними предложениями. Blueprint сохранён как исходный материал, не как утверждённое ТЗ.
+## Data and limitations
 
-## Визуальное направление
+The project prioritizes free sources, but free access does not imply global coverage, complete records or unrestricted redistribution. Fintraffic is the current position source; other sources are being researched separately in the [data and API register](docs/data-and-api.md).
 
-Минимализм Apple, футуристическое настроение, ASCII, ориентиры offerfly.at, OpenAI и Hermes: «strange, but cool». Подробная дизайн-система будет обсуждаться позже.
+Positions may be delayed, incomplete, duplicated or incorrect. An MMSI identifies an observed signal in this prototype and is not by itself a verified vessel identity. History is limited to data actually collected locally. The dossier is not an automatically verified ownership or sanctions registry. Do not use this prototype for navigation or as the sole basis for consequential conclusions.
 
-## Запуск и участие
+Fintraffic open data is provided under [CC BY 4.0 and its attribution terms](https://www.digitraffic.fi/en/terms-of-service/). Source data, map assets, dependencies and project code have separate licensing conditions.
 
-Первый локальный срез прошёл синтетическую приёмку: доступны карта, read API и сборщик Fintraffic. В следующих локальных этапах добавлены [история](docs/api/history.md), [досье](docs/api/dossier.md) и [сводка качества AIS](docs/api/quality.md). Начните с [инструкции запуска](docs/run-local.md) и [статуса проверок](docs/development/acceptance.md). Источник не проверялся живым запросом в рамках текущей реализации; покрытие и свежесть не гарантируются.
+## Verification and development
 
-В предложениях указывайте источник, дату и ограничения. Не публикуйте ключи доступа и сырые внешние датасеты.
+The documented local acceptance run uses synthetic data and an isolated test database. To run it after completing the prerequisites in the local guide:
 
-## Лицензия
+```sh
+.venv/bin/python scripts/accept_local.py
+```
 
-Лицензия собственного кода и документации ещё не выбрана владельцем. Условия внешних данных и компонентов проверяются отдельно. Публичный репозиторий не означает автоматического разрешения на любое повторное использование.
+This requires Docker, the installed Python and web dependencies, and Chrome. Consult the [acceptance record](docs/development/acceptance.md) for what was actually tested and the [release-readiness assessment](docs/development/release-readiness.md) for remaining limitations. A successful synthetic run does not establish live coverage or production readiness.
 
-Локальный запуск и текущие ограничения: [docs/run-local.md](docs/run-local.md). Коллекция для Postman: [postman/](postman/README.md).
+Please keep secrets, database dumps and raw external datasets out of Git. Research contributions should identify their sources, dates and limitations. The repository also includes a [Postman collection](postman/README.md) for the local API.
 
-Повторяемая проверка: `.venv/bin/python scripts/accept_local.py`. Граница локального выпуска и открытые внешние проверки: [release readiness](docs/development/release-readiness.md).
+## Documentation
+
+| Topic | Start here |
+| --- | --- |
+| Project direction and decisions | [Context](docs/context.md) · [Decision log](docs/decisions.md) |
+| Product and architecture | [Technical specification](docs/architecture/technical-spec.md) · [System design](docs/architecture/system-design.md) · [Database design](docs/architecture/database-design.md) |
+| Implementation and handoff | [Development plan](docs/superpowers/plans/2026-11-14-first-development.md) · [Handoff guide](docs/handoff/README.md) |
+| Data research | [Sources and APIs](docs/data-and-api.md) · [Source research](docs/research/source-foundation-plan.md) |
+| Local features | [History](docs/api/history.md) · [Dossier](docs/api/dossier.md) · [Quality summary](docs/api/quality.md) |
+| Design and reference material | [Design direction](docs/design-direction.md) · [Original blueprint](docs/reference/README.md) |
+| Rights and third-party materials | [Licensing notes](docs/licenses.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) |
+
+Much of the project documentation is currently in Russian. The original blueprint is reference material; later recorded decisions and the current implementation should be read alongside it.
+
+## License
+
+A license for the project's own code and documentation has **not yet been selected**. A public repository alone does not grant a general license to reuse its contents. Third-party components and datasets retain their respective licenses; see [licensing notes](docs/licenses.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
